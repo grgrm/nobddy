@@ -1,0 +1,352 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+  animation: fadeUp 0.2s ease;
+}
+
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  max-width: 860px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+.closeBtn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text-dim);
+  z-index: 10;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+}
+
+.closeBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ─── Detail ─── */
+.detail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.imageCol {
+  aspect-ratio: 1;
+  background: var(--bg3);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.imagePlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 96px;
+  color: var(--border);
+}
+
+.infoCol {
+  padding: 40px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.catTag {
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 3px 8px;
+  border-radius: var(--radius);
+  width: fit-content;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.summary {
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.description {
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.7;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.priceRow {
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.price {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lightning { color: var(--accent2); }
+
+.priceSub {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.buyBtn {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 16px 24px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius);
+  transition: all var(--transition);
+  margin-top: 8px;
+}
+
+.buyBtn:hover {
+  background: #e03d00;
+  transform: translateY(-1px);
+}
+
+.disclaimer {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+  letter-spacing: 0.05em;
+}
+
+/* ─── Center states ─── */
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: 48px;
+  gap: 16px;
+  text-align: center;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.centerTitle {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.centerSub {
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.6;
+  max-width: 320px;
+}
+
+.successIcon {
+  font-size: 56px;
+  color: var(--green);
+  animation: fadeUp 0.4s ease;
+}
+
+.errorIcon {
+  font-size: 56px;
+  color: var(--accent);
+}
+
+.doneBtn, .retryBtn {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  padding: 12px 32px;
+  border: 1px solid;
+  border-radius: var(--radius);
+  margin-top: 8px;
+  transition: all var(--transition);
+}
+
+.doneBtn {
+  background: var(--green);
+  border-color: var(--green);
+  color: #000;
+}
+
+.retryBtn {
+  background: transparent;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.retryBtn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ─── Invoice view ─── */
+.invoiceView {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px;
+  gap: 16px;
+}
+
+.invoiceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 320px;
+}
+
+.invoiceTitle {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+}
+
+.timer {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--green);
+  letter-spacing: 0.1em;
+  transition: color 0.3s;
+}
+
+.timerUrgent {
+  color: var(--accent);
+  animation: pulse 1s ease infinite;
+}
+
+.qrWrap {
+  padding: 16px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.qr {
+  display: block;
+  border-radius: var(--radius);
+}
+
+.invoiceAmount {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.invoiceProduct {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.invoiceStr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.invoiceCode {
+  flex: 1;
+  font-size: 11px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copyBtn {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+  white-space: nowrap;
+  transition: color var(--transition);
+}
+
+.copyBtn:hover { color: var(--text); }
+
+.invoiceHint {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  max-width: 280px;
+  line-height: 1.6;
+}
+
+@media (max-width: 640px) {
+  .detail { grid-template-columns: 1fr; }
+  .imageCol { aspect-ratio: 4/3; border-right: none; border-bottom: 1px solid var(--border); }
+  .infoCol { padding: 24px 20px; }
+  .title { font-size: 22px; }
+}

@@ -1,0 +1,51 @@
+.sideLeft,
+.sideRight {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  z-index: 10;
+  pointer-events: none;
+  padding: 24px 0;
+}
+
+.sideLeft {
+  left: 12px;
+}
+
+.sideRight {
+  right: 12px;
+}
+
+.bolt {
+  color: var(--accent);
+  image-rendering: pixelated;
+  animation: flicker 2s ease-in-out infinite;
+  opacity: 0.15;
+}
+
+.boltFlip {
+  transform: scaleX(-1);
+}
+
+@keyframes flicker {
+  0%   { opacity: 0.06; }
+  10%  { opacity: 0.25; }
+  12%  { opacity: 0.06; }
+  20%  { opacity: 0.2;  }
+  22%  { opacity: 0.06; }
+  80%  { opacity: 0.06; }
+  90%  { opacity: 0.18; }
+  92%  { opacity: 0.06; }
+  100% { opacity: 0.06; }
+}
+
+/* Hide on small screens */
+@media (max-width: 900px) {
+  .sideLeft,
+  .sideRight {
+    display: none;
+  }
+}
