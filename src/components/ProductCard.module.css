@@ -211,3 +211,48 @@
   padding: 2px 6px;
   border-radius: var(--radius);
 }
+
+/* Secret card */
+.secretCard {
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at 30% 40%, #1a0533 0%, #0d001a 40%, #000510 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.secretCardParticles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.secretCardParticle {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, #c084fc 40%, transparent 70%);
+  animation: sparkleCard 3s ease-in-out infinite;
+}
+
+@keyframes sparkleCard {
+  0%, 100% { opacity: 0; transform: scale(0.5); }
+  50% { opacity: 0.9; transform: scale(1.2); }
+}
+
+.secretCardIcon {
+  font-size: 40px;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 0 12px rgba(192, 132, 252, 0.8));
+  animation: lockPulseCard 2.5s ease-in-out infinite;
+}
+
+@keyframes lockPulseCard {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}

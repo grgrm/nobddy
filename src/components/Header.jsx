@@ -92,7 +92,7 @@ export default function Header({ view, setView, ownerPubkey }) {
           <div>
             <div className={styles.title}>NO<span className={styles.accent}>BDDY</span></div>
             <div className={styles.subtitle}>
-              decentralized · censorship-resistant
+              SOVEREIGN BY DEFAULT
               {btcPrice && <span className={styles.btcPrice}> · ₿ ${btcPrice.toLocaleString()}</span>}
             </div>
           </div>

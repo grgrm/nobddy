@@ -11,9 +11,22 @@ export default function ProductCard({ product, index, onClick }) {
   const { addToCart } = useCart()
   const { formatPrice } = useCurrency()
 
-  const priceDisplay = formatPrice(product.price, product.currency)
+  const isPostcard = product.category === 'postcards'
+  const denominations = product.denominations || []
 
+  // For postcards show min denomination, for others show regular price
+  const priceDisplay = isPostcard && denominations.length > 0
+    ? `from ${Number(denominations[0]).toLocaleString()} sats`
+    : formatPrice(product.price, product.currency)
   const isSoldOut = product.status === 'sold'
+
+  // Find first non-secret image
+  const allImages = (product.images || []).map(img =>
+    typeof img === 'string' ? { url: img, secret: false } : img
+  )
+  const firstPublicImage = allImages.find(img => !img.secret)
+  const allSecret = allImages.length > 0 && allImages.every(img => img.secret)
+  const displayImage = firstPublicImage?.url || product.image
 
   function handleAddToCart(e) {
     e.stopPropagation() // don't open modal
@@ -29,13 +42,29 @@ export default function ProductCard({ product, index, onClick }) {
       style={{ animationDelay: `${index * 0.05}s` }}
     >
       <div className={styles.imageWrap}>
-        <img
-          className={styles.image}
-          src={imgError || !product.image ? PLACEHOLDER : product.image}
-          alt={product.title}
-          onError={() => setImgError(true)}
-          loading="lazy"
-        />
+        {allSecret ? (
+          <div className={styles.secretCard}>
+            <div className={styles.secretCardParticles}>
+              {[...Array(20)].map((_, i) => (
+                <div key={i} className={styles.secretCardParticle} style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animationDelay: `${Math.random() * 3}s`,
+                  animationDuration: `${2 + Math.random() * 3}s`,
+                }} />
+              ))}
+            </div>
+            <div className={styles.secretCardIcon}>🔒</div>
+          </div>
+        ) : (
+          <img
+            className={styles.image}
+            src={imgError || !displayImage ? PLACEHOLDER : displayImage}
+            alt={product.title}
+            onError={() => setImgError(true)}
+            loading="lazy"
+          />
+        )}
         {isSoldOut ? (
           <div className={styles.soldOutOverlay}>SOLD OUT</div>
         ) : (

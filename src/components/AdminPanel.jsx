@@ -12,7 +12,8 @@ const EMPTY_FORM = {
   summary: '',
   description: '',
   details: '',
-  images: [''],
+  images: [{ url: '', secret: false, denomination: '' }],
+  postcardPairs: [{ front: '', back: '', denomination: '' }],
   price: '',
   currency: 'USD',
   category: 'clothing',
@@ -21,7 +22,6 @@ const EMPTY_FORM = {
   flavors: '',
   sizes: [],
   colors: '',
-  denominations: '',
 }
 
 function PasswordGate({ onUnlock }) {
@@ -108,7 +108,14 @@ export default function AdminPanel({ products, ownerPubkey, onRefresh }) {
       summary: product.summary || '',
       description: product.description || '',
       details: product.details || '',
-      images: product.images?.length ? product.images : [product.image || ''],
+      images: product.images?.length
+        ? product.images.map(img =>
+            typeof img === 'string' ? { url: img, secret: false, denomination: '' } : { denomination: '', ...img }
+          )
+        : [{ url: product.image || '', secret: false, denomination: '' }],
+      postcardPairs: product.postcardPairs?.length
+        ? product.postcardPairs
+        : [{ front: '', back: '', denomination: '' }],
       price: String(product.price),
       currency: product.currency || 'USD',
       category: product.category || 'clothing',
@@ -117,7 +124,6 @@ export default function AdminPanel({ products, ownerPubkey, onRefresh }) {
       flavors: (product.flavors || []).join(', '),
       sizes: product.sizes || [],
       colors: (product.colors || []).join(', '),
-      denominations: (product.denominations || []).join(', '),
     })
     setEditingId(product.id)
     setResult(null)
@@ -133,15 +139,32 @@ export default function AdminPanel({ products, ownerPubkey, onRefresh }) {
 
   async function handlePublish(e) {
     e.preventDefault()
-    if (!form.title || !form.price) return
+    if (!form.title || (!form.price && form.category !== 'postcards')) return
     setPublishing(true)
     setResult(null)
     try {
+      const isPostcard = form.category === 'postcards'
+      const postcardPairs = (form.postcardPairs || []).filter(p => p.front)
+      // Build images as pairs: front1, back1, front2, back2
+      const postcardImages = isPostcard
+        ? postcardPairs.flatMap(p => [
+            { url: p.front, secret: false, denomination: p.denomination },
+            ...(p.back ? [{ url: p.back, secret: true, denomination: p.denomination }] : []),
+          ]).filter(img => img.url)
+        : (form.images || []).filter(img => img.url)
+
+      // For postcards, use min denomination as price (or 0)
+      const postcardPrice = isPostcard
+        ? Math.min(...postcardPairs.map(p => Number(p.denomination)).filter(Boolean)) || 0
+        : Number(form.price)
+
       const res = await publishProduct({
         ...form,
-        price: Number(form.price),
+        price: postcardPrice,
+        currency: isPostcard ? 'SATS' : form.currency,
         id: editingId || slugify(form.title),
-        images: (form.images || ['']).filter(Boolean),
+        images: postcardImages,
+        postcardPairs: isPostcard ? postcardPairs : [],
         flavors: form.flavors
           ? form.flavors.split(',').map(f => f.trim()).filter(Boolean)
           : [],
@@ -149,8 +172,8 @@ export default function AdminPanel({ products, ownerPubkey, onRefresh }) {
         colors: form.colors
           ? form.colors.split(',').map(c => c.trim()).filter(Boolean)
           : [],
-        denominations: form.denominations
-          ? form.denominations.split(',').map(d => d.trim().replace(/[^0-9]/g, '')).filter(Boolean)
+        denominations: isPostcard
+          ? postcardPairs.map(p => p.denomination).filter(Boolean)
           : [],
       })
       setResult({ ok: true, msg: editingId ? `Updated on ${res.published}/${res.total} relays` : `Published to ${res.published}/${res.total} relays` })
@@ -263,45 +286,116 @@ export default function AdminPanel({ products, ownerPubkey, onRefresh }) {
               </div>
 
               <div className={styles.field}>
-                <label className={styles.label}>PHOTOS</label>
-                {(form.images || ['']).map((url, i) => (
-                  <div key={i} className={styles.imageRow}>
-                    <input
-                      value={url}
-                      onChange={e => {
-                        const next = [...(form.images || [''])]
-                        next[i] = e.target.value
-                        setField('images', next)
-                      }}
-                      placeholder={i === 0 ? 'https://example.com/photo1.jpg (main)' : `https://example.com/photo${i + 1}.jpg`}
-                      type="url"
-                    />
-                    {(form.images || ['']).length > 1 && (
-                      <button
-                        type="button"
-                        className={styles.removeImageBtn}
-                        onClick={() => {
-                          const next = (form.images || ['']).filter((_, idx) => idx !== i)
-                          setField('images', next.length ? next : [''])
-                        }}
-                      >✕</button>
+                {form.category === 'postcards' ? (
+                  <>
+                    <label className={styles.label}>POSTCARD PAIRS</label>
+                    {(form.postcardPairs || [{ front: '', back: '', denomination: '' }]).map((pair, i) => (
+                      <div key={i} className={styles.postcardPair}>
+                        <div className={styles.postcardPairHeader}>
+                          <span className={styles.postcardPairNum}>#{i + 1}</span>
+                          <input
+                            type="text"
+                            className={styles.denominationInline}
+                            placeholder="sats"
+                            value={pair.denomination || ''}
+                            onChange={e => {
+                              const next = [...(form.postcardPairs || [])]
+                              next[i] = { ...next[i], denomination: e.target.value.replace(/[^0-9]/g, '') }
+                              setField('postcardPairs', next)
+                            }}
+                          />
+                          {(form.postcardPairs || []).length > 1 && (
+                            <button
+                              type="button"
+                              className={styles.removeImageBtn}
+                              onClick={() => {
+                                const next = (form.postcardPairs || []).filter((_, idx) => idx !== i)
+                                setField('postcardPairs', next.length ? next : [{ front: '', back: '', denomination: '' }])
+                              }}
+                            >✕</button>
+                          )}
+                        </div>
+                        <input
+                          value={pair.front || ''}
+                          onChange={e => {
+                            const next = [...(form.postcardPairs || [])]
+                            next[i] = { ...next[i], front: e.target.value }
+                            setField('postcardPairs', next)
+                          }}
+                          placeholder="🖼 Front (public)"
+                          type="url"
+                        />
+                        <input
+                          value={pair.back || ''}
+                          onChange={e => {
+                            const next = [...(form.postcardPairs || [])]
+                            next[i] = { ...next[i], back: e.target.value }
+                            setField('postcardPairs', next)
+                          }}
+                          placeholder="🔒 Back (secret, unlocks after payment)"
+                          type="url"
+                        />
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className={styles.addImageBtn}
+                      onClick={() => setField('postcardPairs', [...(form.postcardPairs || []), { front: '', back: '', denomination: '' }])}
+                    >
+                      + ADD POSTCARD
+                    </button>
+                    {form.postcardPairs?.[0]?.front && (
+                      <img
+                        className={styles.imgPreview}
+                        src={form.postcardPairs[0].front}
+                        alt="preview"
+                        onError={e => e.target.style.display = 'none'}
+                      />
                     )}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  className={styles.addImageBtn}
-                  onClick={() => setField('images', [...(form.images || ['']), ''])}
-                >
-                  + ADD PHOTO
-                </button>
-                {form.images?.[0] && (
-                  <img
-                    className={styles.imgPreview}
-                    src={form.images[0]}
-                    alt="preview"
-                    onError={e => e.target.style.display = 'none'}
-                  />
+                  </>
+                ) : (
+                  <>
+                    <label className={styles.label}>PHOTOS</label>
+                    {(form.images || [{ url: '', secret: false }]).map((img, i) => (
+                      <div key={i} className={styles.imageRow}>
+                        <input
+                          value={img.url || ''}
+                          onChange={e => {
+                            const next = [...(form.images || [])]
+                            next[i] = { ...next[i], url: e.target.value }
+                            setField('images', next)
+                          }}
+                          placeholder={i === 0 ? 'https://example.com/photo1.jpg (main)' : `https://example.com/photo${i + 1}.jpg`}
+                          type="url"
+                        />
+                        {(form.images || []).length > 1 && (
+                          <button
+                            type="button"
+                            className={styles.removeImageBtn}
+                            onClick={() => {
+                              const next = (form.images || []).filter((_, idx) => idx !== i)
+                              setField('images', next.length ? next : [{ url: '', secret: false, denomination: '' }])
+                            }}
+                          >✕</button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className={styles.addImageBtn}
+                      onClick={() => setField('images', [...(form.images || []), { url: '', secret: false, denomination: '' }])}
+                    >
+                      + ADD PHOTO
+                    </button>
+                    {form.images?.[0]?.url && (
+                      <img
+                        className={styles.imgPreview}
+                        src={form.images[0].url}
+                        alt="preview"
+                        onError={e => e.target.style.display = 'none'}
+                      />
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -309,27 +403,31 @@ export default function AdminPanel({ products, ownerPubkey, onRefresh }) {
             {/* Right column */}
             <div className={styles.formCol}>
               <div className={styles.fieldRow}>
-                <div className={styles.field}>
-                  <label className={styles.label}>PRICE *</label>
-                  <input
-                    value={form.price}
-                    onChange={e => setField('price', e.target.value)}
-                    placeholder="25"
-                    type="number"
-                    min="0"
-                    step="any"
-                    required
-                  />
-                </div>
-                <div className={styles.field}>
-                  <label className={styles.label}>CURRENCY</label>
-                  <select
-                    value={form.currency}
-                    onChange={e => setField('currency', e.target.value)}
-                  >
-                    {CURRENCIES.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </div>
+                {form.category !== 'postcards' && (
+                  <>
+                    <div className={styles.field}>
+                      <label className={styles.label}>PRICE *</label>
+                      <input
+                        value={form.price}
+                        onChange={e => setField('price', e.target.value)}
+                        placeholder="25"
+                        type="number"
+                        min="0"
+                        step="any"
+                        required
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label className={styles.label}>CURRENCY</label>
+                      <select
+                        value={form.currency}
+                        onChange={e => setField('currency', e.target.value)}
+                      >
+                        {CURRENCIES.map(c => <option key={c}>{c}</option>)}
+                      </select>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className={styles.field}>
@@ -369,17 +467,6 @@ export default function AdminPanel({ products, ownerPubkey, onRefresh }) {
                     value={form.colors}
                     onChange={e => setField('colors', e.target.value)}
                     placeholder="Black, White, Navy, Olive"
-                  />
-                </div>
-              )}
-
-              {form.category === 'postcards' && (
-                <div className={styles.field}>
-                  <label className={styles.label}>SATS DENOMINATIONS (comma-separated)</label>
-                  <input
-                    value={form.denominations}
-                    onChange={e => setField('denominations', e.target.value)}
-                    placeholder="1000, 5000, 10000, 21000"
                   />
                 </div>
               )}
@@ -443,7 +530,7 @@ status: "${form.status}"`}
           <button
             className={styles.publishBtn}
             type="submit"
-            disabled={publishing || !form.title || !form.price}
+            disabled={publishing || !form.title || (!form.price && form.category !== 'postcards')}
           >
             {publishing ? (
               <><span className={styles.spin} /> {editingId ? 'UPDATING…' : 'PUBLISHING TO NOSTR…'}</>

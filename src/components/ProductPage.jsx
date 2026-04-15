@@ -3,6 +3,7 @@ import styles from './ProductPage.module.css'
 import { useCart } from '../utils/CartContext.jsx'
 import { useCurrency } from '../utils/CurrencyContext.jsx'
 import { createProductInvoice, checkInvoicePaid } from '../utils/lightning.js'
+import { sendOrderNotification } from '../utils/telegram.js'
 import QRCode from 'qrcode'
 
 const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
@@ -18,7 +19,7 @@ function getSettings() {
 
 export default function ProductPage({ product, onBack }) {
   const { addToCart } = useCart()
-  const { formatPrice } = useCurrency()
+  const { formatPrice, currency, convert, rates } = useCurrency()
   const shopSettings = getSettings()
 
   // Variants
@@ -38,13 +39,15 @@ export default function ProductPage({ product, onBack }) {
 
   const [selectedSize, setSelectedSize] = useState(null)
   const [selectedFlavor, setSelectedFlavor] = useState(flavors[0] || null)
-  const images = (product.images?.length ? product.images : [product.image]).filter(Boolean)
+  const images = (product.images?.length ? product.images : [{ url: product.image, secret: false }])
+    .filter(img => img.url || (typeof img === 'string' && img))
+    .map(img => typeof img === 'string' ? { url: img, secret: false } : img)
   const [activeImg, setActiveImg] = useState(0)
   const [imgZoomed, setImgZoomed] = useState(false)
   const [added, setAdded] = useState(false)
 
   // Invoice state
-  const [checkoutStep, setCheckoutStep] = useState(null) // null | generating | invoice | paid | error
+  const [checkoutStep, setCheckoutStep] = useState(null) // null | shipping | generating | invoice | paid | error
   const [invoice, setInvoice] = useState(null)
   const [error, setError] = useState('')
   const [timeLeft, setTimeLeft] = useState(600)
@@ -53,7 +56,41 @@ export default function ProductPage({ product, onBack }) {
   const pollRef = useRef(null)
   const timerRef = useRef(null)
 
-  const priceDisplay = formatPrice(product.price, product.currency)
+  // Shipping form
+  const [shipping, setShipping] = useState({
+    name: '', country: '', city: '', address: '', zip: '', email: ''
+  })
+  const [shippingError, setShippingError] = useState('')
+
+  function handleShippingChange(field, value) {
+    setShipping(prev => ({ ...prev, [field]: value }))
+  }
+
+  function validateShipping() {
+    if (isPostcard) {
+      if (!shipping.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shipping.email)) {
+        setShippingError('Please enter a valid email')
+        return false
+      }
+      setShippingError('')
+      return true
+    }
+    const { name, country, city, address, zip, email } = shipping
+    if (!name || !country || !city || !address || !zip || !email) {
+      setShippingError('Please fill in all fields')
+      return false
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setShippingError('Please enter a valid email')
+      return false
+    }
+    setShippingError('')
+    return true
+  }
+
+  const priceDisplay = isPostcard && selectedDenomination
+    ? `${Number(selectedDenomination).toLocaleString()} sats`
+    : formatPrice(product.price, product.currency)
 
   const isSoldOut = product.status === 'sold'
 
@@ -111,6 +148,12 @@ export default function ProductPage({ product, onBack }) {
           clearInterval(pollRef.current)
           clearInterval(timerRef.current)
           setCheckoutStep('paid')
+          sendOrderNotification({
+            product,
+            variant: variantLabel(),
+            amountSats: invoice.amountSats,
+            shipping,
+          })
         }
       } catch (e) {}
     }, 3000)
@@ -134,10 +177,20 @@ export default function ProductPage({ product, onBack }) {
 
   async function handleBuyNow() {
     if (!checkSize()) return
+    setCheckoutStep('shipping')
+    setError('')
+  }
+
+  async function handleProceedToPayment() {
+    if (!validateShipping()) return
     setCheckoutStep('generating')
     setError('')
     try {
-      const inv = await createProductInvoice(product)
+      // For postcards use selected denomination as price in SATS
+      const productForInvoice = isPostcard && selectedDenomination
+        ? { ...product, price: Number(selectedDenomination), currency: 'SATS' }
+        : product
+      const inv = await createProductInvoice(productForInvoice)
       setInvoice(inv)
       setCheckoutStep('invoice')
     } catch (err) {
@@ -170,33 +223,70 @@ export default function ProductPage({ product, onBack }) {
         {/* ── LEFT: Image ── */}
         <div className={styles.imageCol}>
           <div
-            className={`${styles.imageWrap} ${imgZoomed ? styles.imageZoomed : ''}`}
-            onClick={() => setImgZoomed(z => !z)}
-            title={imgZoomed ? 'Click to zoom out' : 'Click to zoom in'}
+            className={`${styles.imageWrap} ${imgZoomed && !images[activeImg]?.secret ? styles.imageZoomed : ''}`}
+            onClick={() => !images[activeImg]?.secret && setImgZoomed(z => !z)}
+            title={images[activeImg]?.secret ? 'Unlocks after payment' : imgZoomed ? 'Click to zoom out' : 'Click to zoom in'}
           >
-            <img
-              className={styles.image}
-              src={images[activeImg] || PLACEHOLDER}
-              alt={product.title}
-              onError={e => e.target.src = PLACEHOLDER}
-            />
-            <div className={styles.zoomHint}>
-              {imgZoomed ? '↙ ZOOM OUT' : '↗ ZOOM IN'}
-            </div>
+            {images[activeImg]?.secret && checkoutStep !== 'paid' ? (
+              <div className={styles.secretCanvas}>
+                <div className={styles.secretParticles}>
+                  {[...Array(40)].map((_, i) => (
+                    <div key={i} className={styles.particle} style={{
+                      left: `${Math.random() * 100}%`,
+                      top: `${Math.random() * 100}%`,
+                      animationDelay: `${Math.random() * 3}s`,
+                      animationDuration: `${2 + Math.random() * 3}s`,
+                      width: `${2 + Math.random() * 4}px`,
+                      height: `${2 + Math.random() * 4}px`,
+                      opacity: Math.random() * 0.8 + 0.2,
+                    }} />
+                  ))}
+                </div>
+                <div className={styles.secretOverlay}>
+                  <div className={styles.secretIcon}>🔒</div>
+                  <div className={styles.secretLabel}>UNLOCKS AFTER PAYMENT</div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <img
+                  className={styles.image}
+                  src={images[activeImg]?.url || images[activeImg] || PLACEHOLDER}
+                  alt={product.title}
+                  onError={e => e.target.src = PLACEHOLDER}
+                />
+                <div className={styles.zoomHint}>
+                  {imgZoomed ? '↙ ZOOM OUT' : '↗ ZOOM IN'}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Thumbnails */}
           {images.length > 1 && (
             <div className={styles.thumbs}>
-              {images.map((img, i) => (
-                <button
-                  key={i}
-                  className={`${styles.thumb} ${i === activeImg ? styles.thumbActive : ''}`}
-                  onClick={() => { setActiveImg(i); setImgZoomed(false) }}
-                >
-                  <img src={img} alt={`photo ${i + 1}`} onError={e => e.target.src = PLACEHOLDER} />
-                </button>
-              ))}
+              {images.map((img, i) => {
+                const isSecret = img.secret && checkoutStep !== 'paid'
+                return (
+                  <button
+                    key={i}
+                    className={`${styles.thumb} ${i === activeImg ? styles.thumbActive : ''}`}
+                    onClick={() => { setActiveImg(i); setImgZoomed(false) }}
+                  >
+                    {isSecret ? (
+                      <div className={styles.thumbSecretBox}>
+                        <span className={styles.thumbLock}>🔒</span>
+                      </div>
+                    ) : (
+                      <img
+                        src={img.url || img}
+                        alt={`photo ${i + 1}`}
+                        onError={e => e.target.src = PLACEHOLDER}
+                      />
+                    )}
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>
@@ -210,7 +300,13 @@ export default function ProductPage({ product, onBack }) {
 
           <div className={styles.price}>
             {!isSoldOut && <span className={styles.lightning}>⚡</span>}
-            {priceDisplay}
+            {isPostcard && denominations.length > 0
+              ? selectedDenomination
+                ? currency === 'SATS'
+                  ? `$${(Number(selectedDenomination) / rates['SATS']).toFixed(2)}`
+                  : formatPrice(Number(selectedDenomination), 'SATS')
+                : 'Select amount below'
+              : priceDisplay}
           </div>
 
           {/* Description */}
@@ -275,7 +371,12 @@ export default function ProductPage({ product, onBack }) {
                   <button
                     key={d}
                     className={`${styles.sizeBtn} ${selectedDenomination === d ? styles.sizeBtnActive : ''}`}
-                    onClick={() => setSelectedDenomination(d)}
+                    onClick={() => {
+                      setSelectedDenomination(d)
+                      // Switch to the secret image that matches this denomination
+                      const secretIdx = images.findIndex(img => img.secret && img.denomination === d)
+                      if (secretIdx !== -1) setActiveImg(secretIdx)
+                    }}
                     style={{ width: 'auto', padding: '0 16px' }}
                   >
                     {Number(d).toLocaleString()} sats
@@ -326,6 +427,59 @@ export default function ProductPage({ product, onBack }) {
             </div>
           )}
 
+          {/* ── SHIPPING FORM ── */}
+          {checkoutStep === 'shipping' && (
+            <div className={styles.checkoutBox}>
+              <div className={styles.checkoutTitle}>
+                {isPostcard ? 'YOUR EMAIL' : 'DELIVERY INFO'}
+              </div>
+              <div className={styles.shippingForm}>
+                {isPostcard ? (
+                  <>
+                    <div className={styles.shippingField}>
+                      <label className={styles.shippingLabel}>Email</label>
+                      <input
+                        className={styles.shippingInput}
+                        type="email"
+                        placeholder="you@example.com"
+                        value={shipping.email}
+                        onChange={e => handleShippingChange('email', e.target.value)}
+                      />
+                    </div>
+                    <p style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+                      Your postcard will be revealed instantly after payment.
+                    </p>
+                  </>
+                ) : (
+                  [
+                    { field: 'name', label: 'Full Name', placeholder: 'John Doe' },
+                    { field: 'country', label: 'Country', placeholder: 'Georgia' },
+                    { field: 'city', label: 'City', placeholder: 'Tbilisi' },
+                    { field: 'address', label: 'Address', placeholder: 'Street, building, apartment' },
+                    { field: 'zip', label: 'Postal Code', placeholder: '0105' },
+                    { field: 'email', label: 'Email', placeholder: 'you@example.com' },
+                  ].map(({ field, label, placeholder }) => (
+                    <div key={field} className={styles.shippingField}>
+                      <label className={styles.shippingLabel}>{label}</label>
+                      <input
+                        className={styles.shippingInput}
+                        type={field === 'email' ? 'email' : 'text'}
+                        placeholder={placeholder}
+                        value={shipping[field]}
+                        onChange={e => handleShippingChange(field, e.target.value)}
+                      />
+                    </div>
+                  ))
+                )}
+                {shippingError && <div className={styles.shippingError}>{shippingError}</div>}
+                <button className={styles.buyBtn} onClick={handleProceedToPayment}>
+                  PROCEED TO PAYMENT ⚡
+                </button>
+                <button className={styles.cancelBtn} onClick={clearCheckout}>← CANCEL</button>
+              </div>
+            </div>
+          )}
+
           {/* ── GENERATING ── */}
           {checkoutStep === 'generating' && (
             <div className={styles.checkoutBox}>
@@ -363,14 +517,45 @@ export default function ProductPage({ product, onBack }) {
 
           {/* ── PAID ── */}
           {checkoutStep === 'paid' && (
-            <div className={styles.checkoutBox}>
-              <div className={styles.successIcon}>✓</div>
-              <div className={styles.checkoutTitle}>PAYMENT RECEIVED!</div>
-              <p className={styles.checkoutSub}>Thank you for your order of <strong>{product.title}</strong>.</p>
-              <button className={styles.doneBtn} onClick={() => { clearCheckout(); onBack() }}>
-                BACK TO STORE
-              </button>
-            </div>
+            isPostcard && selectedDenomination ? (() => {
+              const pair = (product.postcardPairs || []).find(p => p.denomination === selectedDenomination)
+              return (
+                <div className={styles.checkoutBox}>
+                  <div className={styles.checkoutTitle}>⚡ YOUR POSTCARD IS UNLOCKED!</div>
+                  <div className={styles.postcardReveal}>
+                    <div className={styles.postcardRevealItem}>
+                      <div className={styles.postcardRevealLabel}>FRONT</div>
+                      <img src={pair?.front} alt="front" className={styles.postcardRevealImg} />
+                    </div>
+                    <div className={styles.postcardRevealItem}>
+                      <div className={styles.postcardRevealLabel}>BACK 🔓</div>
+                      <img src={pair?.back} alt="back" className={`${styles.postcardRevealImg} ${styles.postcardRevealBack}`} />
+                    </div>
+                  </div>
+                  <a
+                    href={pair?.back}
+                    download
+                    className={styles.downloadBtn}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    ↓ DOWNLOAD BACK
+                  </a>
+                  <button className={styles.doneBtn} onClick={() => { clearCheckout(); onBack() }}>
+                    BACK TO STORE
+                  </button>
+                </div>
+              )
+            })() : (
+              <div className={styles.checkoutBox}>
+                <div className={styles.successIcon}>✓</div>
+                <div className={styles.checkoutTitle}>PAYMENT RECEIVED!</div>
+                <p className={styles.checkoutSub}>Thank you for your order of <strong>{product.title}</strong>.</p>
+                <button className={styles.doneBtn} onClick={() => { clearCheckout(); onBack() }}>
+                  BACK TO STORE
+                </button>
+              </div>
+            )
           )}
 
           {/* ── ERROR ── */}

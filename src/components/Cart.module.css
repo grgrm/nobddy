@@ -486,3 +486,184 @@
 .splitDotPaid {
   background: var(--green);
 }
+
+/* ─── CHECKOUT MODAL ─── */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 300;
+  backdrop-filter: blur(4px);
+}
+
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 301;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px;
+  width: min(480px, 92vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modalTitle {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  color: var(--text);
+  text-align: center;
+}
+
+.modalCenter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 0;
+}
+
+.modalTimer {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--accent);
+  text-align: center;
+}
+
+.modalQr {
+  border-radius: 12px;
+  display: block;
+  margin: 0 auto;
+}
+
+.modalAmount {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+  text-align: center;
+}
+
+.modalInvoiceStr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.modalInvoiceStr button {
+  margin-left: auto;
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  padding: 4px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.modalPayBtn {
+  width: 100%;
+  padding: 14px;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  border-radius: 8px;
+  transition: all 0.15s;
+}
+
+.modalPayBtn:hover {
+  opacity: 0.85;
+}
+
+.modalCancelBtn {
+  width: 100%;
+  padding: 10px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+}
+
+.modalSub {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+/* Shipping form in modal */
+.shippingForm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.shippingField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shippingLabel {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+}
+
+.shippingInput {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text);
+  width: 100%;
+  transition: border-color 0.15s;
+}
+
+.shippingInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.shippingInput::placeholder {
+  color: var(--text-muted);
+}
+
+.shippingError {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent);
+  padding: 8px 12px;
+  background: rgba(204, 58, 0, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(204, 58, 0, 0.3);
+}

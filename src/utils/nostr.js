@@ -71,7 +71,12 @@ export async function publishProduct(product) {
       ['d', slug],
       ['title', product.title],
       ['summary', product.summary || ''],
-      ...(product.images || [product.image]).filter(Boolean).map(img => ['image', img, '800x800']),
+      ...(product.images || [product.image]).filter(Boolean).map(img => {
+        const url = typeof img === 'string' ? img : img.url
+        const secret = typeof img === 'object' && img.secret ? 'secret' : 'public'
+        const denomination = typeof img === 'object' && img.denomination ? img.denomination : ''
+        return ['image', url, '800x800', secret, denomination]
+      }),
       ['price', String(product.price), product.currency || 'USD'],
       ['t', product.category || 'merch'],
       ['status', product.status || 'active'],
@@ -82,6 +87,9 @@ export async function publishProduct(product) {
       ...(product.sizes || []).map(s => ['size', s]),
       ...(product.colors || []).map(c => ['color', c]),
       ...(product.denominations || []).map(d => ['denomination', d]),
+      ...(product.postcardPairs || []).map(p =>
+        ['postcard_pair', p.front, p.back, p.denomination || '']
+      ),
     ],
     content: product.description || product.summary || '',
     pubkey,
@@ -134,7 +142,11 @@ export function parseProductEvent(event) {
     summary: tag('summary') || '',
     description: event.content || '',
     image: event.tags.find(t => t[0] === 'image')?.[1] || '',
-    images: event.tags.filter(t => t[0] === 'image').map(t => t[1]),
+    images: event.tags.filter(t => t[0] === 'image').map(t => ({
+      url: t[1],
+      secret: t[3] === 'secret',
+      denomination: t[4] || '',
+    })),
     price: priceTag?.[1] ? Number(priceTag[1]) : 0,
     currency: priceTag?.[2] || 'USD',
     category: tag('t') || 'merch',
@@ -146,6 +158,11 @@ export function parseProductEvent(event) {
     sizes: event.tags.filter(t => t[0] === 'size').map(t => t[1]),
     colors: event.tags.filter(t => t[0] === 'color').map(t => t[1]),
     denominations: event.tags.filter(t => t[0] === 'denomination').map(t => t[1]),
+    postcardPairs: event.tags.filter(t => t[0] === 'postcard_pair').map(t => ({
+      front: t[1],
+      back: t[2],
+      denomination: t[3] || '',
+    })),
     created_at: event.created_at,
   }
 }

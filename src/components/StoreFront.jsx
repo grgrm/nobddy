@@ -54,7 +54,7 @@ export default function StoreFront({ products, loading, onSelectProduct }) {
             OWN YOUR ENERGY.
           </h1>
           <p className={styles.heroSub}>
-            Decentralized shop on Bitcoin &amp; Nostr.
+            Exist without permission.
           </p>
           <div
             className={styles.cubesWrap}

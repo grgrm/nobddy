@@ -2,15 +2,16 @@ import React, { useState, useEffect, useRef } from 'react'
 import styles from './Cart.module.css'
 import { useCart } from '../utils/CartContext.jsx'
 import { createInvoice, checkInvoicePaid, toSats } from '../utils/lightning.js'
+import { sendCartOrderNotification } from '../utils/telegram.js'
 import QRCode from 'qrcode'
 
 export default function Cart() {
   const { items, open, setOpen, removeFromCart, updateQty, clearCart, totalPrice, totalItems, currency } = useCart()
 
-  // checkout state: null | 'generating' | 'invoice' | 'split' | 'paid' | 'error'
+  // checkout state: null | 'shipping' | 'generating' | 'invoice' | 'split' | 'paid' | 'error'
   const [checkoutStep, setCheckoutStep] = useState(null)
   const [invoice, setInvoice] = useState(null)         // single invoice
-  const [splitQueue, setSplitQueue] = useState([])     // [{label, amountSats, paymentRequest, paymentHash, paid}]
+  const [splitQueue, setSplitQueue] = useState([])     // [{label, amountSats, paymentRequest, invoiceId, paid}]
   const [splitIndex, setSplitIndex] = useState(0)      // current split invoice index
   const [error, setError] = useState('')
   const [timeLeft, setTimeLeft] = useState(600)
@@ -19,9 +20,32 @@ export default function Cart() {
   const pollRef = useRef(null)
   const timerRef = useRef(null)
 
-  // Reset checkout when cart closes
+  // Shipping form
+  const [shipping, setShipping] = useState({ name: '', country: '', city: '', address: '', zip: '', email: '' })
+  const [shippingError, setShippingError] = useState('')
+  const [pendingPayType, setPendingPayType] = useState(null) // 'all' | 'split'
+
+  function handleShippingChange(field, value) {
+    setShipping(prev => ({ ...prev, [field]: value }))
+  }
+
+  function validateShipping() {
+    const { name, country, city, address, zip, email } = shipping
+    if (!name || !country || !city || !address || !zip || !email) {
+      setShippingError('Please fill in all fields')
+      return false
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setShippingError('Please enter a valid email')
+      return false
+    }
+    setShippingError('')
+    return true
+  }
+
+  // Reset checkout when cart closes (but not if we're in checkout modal)
   useEffect(() => {
-    if (!open) {
+    if (!open && !checkoutStep) {
       clearCheckout()
     }
   }, [open])
@@ -45,6 +69,11 @@ export default function Cart() {
     if (checkoutStep !== 'invoice' || !invoice) return
     startTimerAndPoll(invoice.expiresAt, invoice.invoiceId, () => {
       setCheckoutStep('paid')
+      sendCartOrderNotification({
+        items,
+        totalSats: invoice.amountSats,
+        shipping,
+      })
       clearCart()
     })
     return () => stopTimerAndPoll()
@@ -117,6 +146,8 @@ export default function Cart() {
     setSplitIndex(0)
     setError('')
     setCopied(false)
+    setPendingPayType(null)
+    setShippingError('')
   }
 
   // Build list of invoices to generate for split: one per line item × qty
@@ -134,7 +165,28 @@ export default function Cart() {
     return list
   }
 
-  async function handlePayAll() {
+  function handlePayAll() {
+    setPendingPayType('all')
+    setCheckoutStep('shipping')
+    setOpen(false)
+  }
+
+  function handleSplit() {
+    setPendingPayType('split')
+    setCheckoutStep('shipping')
+    setOpen(false)
+  }
+
+  async function handleProceedToPayment() {
+    if (!validateShipping()) return
+    if (pendingPayType === 'all') {
+      await doPayAll()
+    } else {
+      await doSplit()
+    }
+  }
+
+  async function doPayAll() {
     setCheckoutStep('generating')
     setError('')
     try {
@@ -149,7 +201,7 @@ export default function Cart() {
     }
   }
 
-  async function handleSplit() {
+  async function doSplit() {
     setCheckoutStep('generating')
     setError('')
     try {
@@ -352,6 +404,82 @@ export default function Cart() {
           </div>
         )}
       </div>
+
+      {/* ─── CHECKOUT MODAL (shipping + invoice) ─── */}
+      {(checkoutStep === 'shipping' || checkoutStep === 'generating' || checkoutStep === 'invoice' || checkoutStep === 'split' || checkoutStep === 'paid') && (
+        <>
+          <div className={styles.modalBackdrop} onClick={() => { if (checkoutStep === 'shipping') clearCheckout() }} />
+          <div className={styles.modal}>
+
+            {/* SHIPPING */}
+            {checkoutStep === 'shipping' && (
+              <>
+                <div className={styles.modalTitle}>DELIVERY INFO</div>
+                <div className={styles.shippingForm}>
+                  {[
+                    { field: 'name', label: 'Full Name', placeholder: 'John Doe' },
+                    { field: 'country', label: 'Country', placeholder: 'Georgia' },
+                    { field: 'city', label: 'City', placeholder: 'Tbilisi' },
+                    { field: 'address', label: 'Address', placeholder: 'Street, building, apartment' },
+                    { field: 'zip', label: 'Postal Code', placeholder: '0105' },
+                    { field: 'email', label: 'Email', placeholder: 'you@example.com' },
+                  ].map(({ field, label, placeholder }) => (
+                    <div key={field} className={styles.shippingField}>
+                      <label className={styles.shippingLabel}>{label}</label>
+                      <input
+                        className={styles.shippingInput}
+                        type={field === 'email' ? 'email' : 'text'}
+                        placeholder={placeholder}
+                        value={shipping[field]}
+                        onChange={e => handleShippingChange(field, e.target.value)}
+                      />
+                    </div>
+                  ))}
+                  {shippingError && <div className={styles.shippingError}>{shippingError}</div>}
+                  <button className={styles.modalPayBtn} onClick={handleProceedToPayment}>
+                    PROCEED TO PAYMENT ⚡
+                  </button>
+                  <button className={styles.modalCancelBtn} onClick={clearCheckout}>← CANCEL</button>
+                </div>
+              </>
+            )}
+
+            {/* GENERATING */}
+            {checkoutStep === 'generating' && (
+              <div className={styles.modalCenter}>
+                <div className={styles.spinner} />
+                <div className={styles.modalTitle}>GENERATING INVOICE…</div>
+              </div>
+            )}
+
+            {/* INVOICE */}
+            {checkoutStep === 'invoice' && invoice && (
+              <>
+                <div className={styles.modalTitle}>SCAN TO PAY</div>
+                <div className={styles.modalTimer}>{formatTime(timeLeft)}</div>
+                <canvas ref={canvasRef} className={styles.modalQr} />
+                <div className={styles.modalAmount}>⚡ {invoice.amountSats.toLocaleString()} sats</div>
+                <div className={styles.modalInvoiceStr}>
+                  <code>{invoice.paymentRequest.slice(0, 30)}…</code>
+                  <button onClick={() => copyInvoice(invoice.paymentRequest)}>{copied ? '✓' : 'COPY'}</button>
+                </div>
+                <button className={styles.modalCancelBtn} onClick={clearCheckout}>← CANCEL</button>
+              </>
+            )}
+
+            {/* PAID */}
+            {checkoutStep === 'paid' && (
+              <div className={styles.modalCenter}>
+                <div className={styles.paidIcon}>⚡</div>
+                <div className={styles.modalTitle}>PAYMENT RECEIVED!</div>
+                <div className={styles.modalSub}>Thank you for your order.</div>
+                <button className={styles.modalPayBtn} onClick={clearCheckout}>CLOSE</button>
+              </div>
+            )}
+
+          </div>
+        </>
+      )}
     </>
   )
 }
