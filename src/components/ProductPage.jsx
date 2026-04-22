@@ -154,6 +154,22 @@ export default function ProductPage({ product, onBack }) {
             amountSats: invoice.amountSats,
             shipping,
           })
+          // Send email to buyer
+          const pair = isPostcard && selectedDenomination
+            ? (product.postcardPairs || []).find(p => p.denomination === selectedDenomination)
+            : null
+          fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: isPostcard ? 'postcard' : 'single',
+              product,
+              variant: variantLabel(),
+              amountSats: invoice.amountSats,
+              shipping,
+              postcards: pair ? [{ frontUrl: pair.front, backUrl: pair.back, denomination: selectedDenomination }] : [],
+            }),
+          }).catch(() => {})
         }
       } catch (e) {}
     }, 3000)
