@@ -216,11 +216,20 @@ export default function Cart() {
     }
   }
 
+  async function itemToSats(product) {
+    if (product.currency === 'SATS') return Math.ceil(product.price)
+    if (product.currency === 'BTC') return Math.ceil(product.price * 100_000_000)
+    return await usdToSats(product.price) // USD, EUR treated as USD approx
+  }
+
   async function doPayAll() {
     setCheckoutStep('generating')
     setError('')
     try {
-      const amountSats = await usdToSats(totalPrice)
+      const satsArr = await Promise.all(items.map(({ product, qty }) =>
+        itemToSats(product).then(s => s * qty)
+      ))
+      const amountSats = satsArr.reduce((a, b) => a + b, 0)
       const memo = items.map(i => `${i.product.title} ×${i.qty}`).join(', ')
       const inv = await createInvoice(amountSats, memo)
       setInvoice({ ...inv, amountSats })
@@ -238,7 +247,10 @@ export default function Cart() {
       const splitItems = buildSplitItems()
       const generated = []
       for (const item of splitItems) {
-        const amountSats = await usdToSats(item.price)
+        let amountSats
+        if (item.currencyCode === 'SATS') amountSats = Math.ceil(item.price)
+        else if (item.currencyCode === 'BTC') amountSats = Math.ceil(item.price * 100_000_000)
+        else amountSats = await usdToSats(item.price)
         const inv = await createInvoice(amountSats, `Purchase: ${item.label}`)
         generated.push({ ...inv, amountSats, label: item.label, paid: false })
       }
