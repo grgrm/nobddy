@@ -62,6 +62,43 @@ app.get('/api/check-invoice', async (req, res) => {
   }
 })
 
+app.post('/api/admin-auth', async (req, res) => {
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD
+  const { password } = req.body
+  if (!ADMIN_PASSWORD) return res.status(500).json({ error: 'Not configured' })
+  if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Wrong password' })
+  const token = Buffer.from(`nobddy-admin-${Date.now()}`).toString('base64')
+  res.json({ ok: true, token })
+})
+
+app.post('/api/send-email', async (req, res) => {
+  const RESEND_API_KEY = process.env.RESEND_API_KEY
+  if (!RESEND_API_KEY) return res.status(500).json({ error: 'Email not configured' })
+  const { type, product, variant, amountSats, shipping, items, totalSats, postcards } = req.body
+  const toEmail = shipping?.email
+  if (!toEmail) return res.status(400).json({ error: 'No recipient email' })
+  // Simple plain text email for local dev testing
+  try {
+    const emailRes = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${RESEND_API_KEY}` },
+      body: JSON.stringify({
+        from: 'NOBDDY <orders@nobddy.store>',
+        to: toEmail,
+        subject: type === 'postcard' ? 'Your NOBDDY Postcard ⚡' : 'Your NOBDDY Order Confirmed ⚡',
+        html: `<p>Order confirmed. Amount: ${(totalSats || amountSats || 0).toLocaleString()} sats</p>`,
+      }),
+    })
+    if (!emailRes.ok) {
+      const err = await emailRes.json().catch(() => ({}))
+      return res.status(500).json({ error: err.message || 'Resend error' })
+    }
+    res.json({ ok: true })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 app.post('/api/notify', async (req, res) => {
   const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
   const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID
@@ -87,3 +124,4 @@ app.post('/api/notify', async (req, res) => {
   }
 })
 
+app.listen(3002, () => console.log('API proxy running on port 3002'))
