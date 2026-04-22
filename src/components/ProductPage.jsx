@@ -106,7 +106,9 @@ export default function ProductPage({ product, onBack }) {
 
   function handleAddToCart() {
     if (!checkSize()) return
-    addToCart({ ...product, variant: variantLabel() })
+    const price = isPostcard && selectedDenomination ? Number(selectedDenomination) : product.price
+    const currency = isPostcard && selectedDenomination ? 'SATS' : product.currency
+    addToCart({ ...product, price, currency, variant: variantLabel() })
     setAdded(true)
     setTimeout(() => setAdded(false), 1500)
   }
