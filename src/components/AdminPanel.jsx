@@ -2,8 +2,6 @@ import React, { useState } from 'react'
 import styles from './AdminPanel.module.css'
 import { publishProduct, deleteProduct, slugify, npubFromPubkey } from '../utils/nostr.js'
 
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || ''
-
 const CATEGORIES = ['clothing', 'coffee', 'accessories', 'postcards', 'other']
 const CURRENCIES = ['USD', 'EUR', 'SATS', 'BTC']
 
@@ -27,15 +25,31 @@ const EMPTY_FORM = {
 function PasswordGate({ onUnlock }) {
   const [input, setInput] = useState('')
   const [error, setError] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
-    if (input === ADMIN_PASSWORD) {
-      onUnlock()
-    } else {
+    setLoading(true)
+    setError(false)
+    try {
+      const res = await fetch('/api/admin-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: input }),
+      })
+      if (res.ok) {
+        onUnlock()
+      } else {
+        setError(true)
+        setInput('')
+        setTimeout(() => setError(false), 2000)
+      }
+    } catch {
       setError(true)
       setInput('')
       setTimeout(() => setError(false), 2000)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -53,7 +67,9 @@ function PasswordGate({ onUnlock }) {
             autoFocus
             className={error ? styles.gateInputError : ''}
           />
-          <button type="submit" className={styles.gateBtn}>ENTER</button>
+          <button type="submit" className={styles.gateBtn} disabled={loading}>
+            {loading ? '…' : 'ENTER'}
+          </button>
         </form>
         {error && <div className={styles.gateError}>✕ Wrong password</div>}
       </div>
@@ -70,7 +86,7 @@ function loadSettings() {
 }
 
 export default function AdminPanel({ products, ownerPubkey, onRefresh }) {
-  const [unlocked, setUnlocked] = useState(!ADMIN_PASSWORD)
+  const [unlocked, setUnlocked] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [editingId, setEditingId] = useState(null)
   const [publishing, setPublishing] = useState(false)
