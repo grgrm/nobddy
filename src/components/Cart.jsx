@@ -29,7 +29,17 @@ export default function Cart() {
     setShipping(prev => ({ ...prev, [field]: value }))
   }
 
+  const isPostcardOnly = items.length > 0 && items.every(({ product }) => product.category === 'postcards')
+
   function validateShipping() {
+    if (isPostcardOnly) {
+      if (!shipping.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shipping.email)) {
+        setShippingError('Please enter a valid email')
+        return false
+      }
+      setShippingError('')
+      return true
+    }
     const { name, country, city, address, zip, email } = shipping
     if (!name || !country || !city || !address || !zip || !email) {
       setShippingError('Please fill in all fields')
@@ -74,6 +84,16 @@ export default function Cart() {
         totalSats: invoice.amountSats,
         shipping,
       })
+      fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'cart',
+          items,
+          totalSats: invoice.amountSats,
+          shipping,
+        }),
+      }).catch(() => {})
       clearCart()
     })
     return () => stopTimerAndPoll()
@@ -87,6 +107,16 @@ export default function Cart() {
       setSplitQueue(prev => prev.map((inv, i) => i === splitIndex ? { ...inv, paid: true } : inv))
       if (splitIndex + 1 >= splitQueue.length) {
         setCheckoutStep('paid')
+        fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'cart',
+            items,
+            totalSats: splitQueue.reduce((sum, inv) => sum + inv.amountSats, 0),
+            shipping,
+          }),
+        }).catch(() => {})
         clearCart()
       } else {
         setSplitIndex(i => i + 1)
@@ -414,27 +444,45 @@ export default function Cart() {
             {/* SHIPPING */}
             {checkoutStep === 'shipping' && (
               <>
-                <div className={styles.modalTitle}>DELIVERY INFO</div>
+                <div className={styles.modalTitle}>{isPostcardOnly ? 'YOUR EMAIL' : 'DELIVERY INFO'}</div>
                 <div className={styles.shippingForm}>
-                  {[
-                    { field: 'name', label: 'Full Name', placeholder: 'John Doe' },
-                    { field: 'country', label: 'Country', placeholder: 'Georgia' },
-                    { field: 'city', label: 'City', placeholder: 'Tbilisi' },
-                    { field: 'address', label: 'Address', placeholder: 'Street, building, apartment' },
-                    { field: 'zip', label: 'Postal Code', placeholder: '0105' },
-                    { field: 'email', label: 'Email', placeholder: 'you@example.com' },
-                  ].map(({ field, label, placeholder }) => (
-                    <div key={field} className={styles.shippingField}>
-                      <label className={styles.shippingLabel}>{label}</label>
-                      <input
-                        className={styles.shippingInput}
-                        type={field === 'email' ? 'email' : 'text'}
-                        placeholder={placeholder}
-                        value={shipping[field]}
-                        onChange={e => handleShippingChange(field, e.target.value)}
-                      />
-                    </div>
-                  ))}
+                  {isPostcardOnly ? (
+                    <>
+                      <div className={styles.shippingField}>
+                        <label className={styles.shippingLabel}>Email</label>
+                        <input
+                          className={styles.shippingInput}
+                          type="email"
+                          placeholder="you@example.com"
+                          value={shipping.email}
+                          onChange={e => handleShippingChange('email', e.target.value)}
+                        />
+                      </div>
+                      <p style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+                        Your postcards will be sent to this email after payment.
+                      </p>
+                    </>
+                  ) : (
+                    [
+                      { field: 'name', label: 'Full Name', placeholder: 'John Doe' },
+                      { field: 'country', label: 'Country', placeholder: 'Georgia' },
+                      { field: 'city', label: 'City', placeholder: 'Tbilisi' },
+                      { field: 'address', label: 'Address', placeholder: 'Street, building, apartment' },
+                      { field: 'zip', label: 'Postal Code', placeholder: '0105' },
+                      { field: 'email', label: 'Email', placeholder: 'you@example.com' },
+                    ].map(({ field, label, placeholder }) => (
+                      <div key={field} className={styles.shippingField}>
+                        <label className={styles.shippingLabel}>{label}</label>
+                        <input
+                          className={styles.shippingInput}
+                          type={field === 'email' ? 'email' : 'text'}
+                          placeholder={placeholder}
+                          value={shipping[field]}
+                          onChange={e => handleShippingChange(field, e.target.value)}
+                        />
+                      </div>
+                    ))
+                  )}
                   {shippingError && <div className={styles.shippingError}>{shippingError}</div>}
                   <button className={styles.modalPayBtn} onClick={handleProceedToPayment}>
                     PROCEED TO PAYMENT ⚡
