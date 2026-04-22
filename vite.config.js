@@ -8,5 +8,13 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['nostr-tools', 'qrcode']
+  },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3002',
+        changeOrigin: true,
+      }
+    }
   }
 })

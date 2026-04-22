@@ -266,12 +266,16 @@ export default function ProductPage({ product, onBack }) {
           {images.length > 1 && (
             <div className={styles.thumbs}>
               {images.map((img, i) => {
-                const isSecret = img.secret && checkoutStep !== 'paid'
+                const isSecret = img.secret && (checkoutStep !== 'paid' || img.denomination !== selectedDenomination)
                 return (
                   <button
                     key={i}
                     className={`${styles.thumb} ${i === activeImg ? styles.thumbActive : ''}`}
-                    onClick={() => { setActiveImg(i); setImgZoomed(false) }}
+                    onClick={() => {
+                      if (isSecret) return // don't allow clicking locked thumbnails
+                      setActiveImg(i)
+                      setImgZoomed(false)
+                    }}
                   >
                     {isSecret ? (
                       <div className={styles.thumbSecretBox}>
@@ -373,9 +377,10 @@ export default function ProductPage({ product, onBack }) {
                     className={`${styles.sizeBtn} ${selectedDenomination === d ? styles.sizeBtnActive : ''}`}
                     onClick={() => {
                       setSelectedDenomination(d)
-                      // Switch to the secret image that matches this denomination
-                      const secretIdx = images.findIndex(img => img.secret && img.denomination === d)
-                      if (secretIdx !== -1) setActiveImg(secretIdx)
+                      if (checkoutStep === 'paid') clearCheckout()
+                      // Switch to the front image that matches this denomination
+                      const frontIdx = images.findIndex(img => !img.secret && img.denomination === d)
+                      if (frontIdx !== -1) setActiveImg(frontIdx)
                     }}
                     style={{ width: 'auto', padding: '0 16px' }}
                   >

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import styles from './Cart.module.css'
 import { useCart } from '../utils/CartContext.jsx'
-import { createInvoice, checkInvoicePaid, toSats } from '../utils/lightning.js'
+import { createInvoice, checkInvoicePaid, usdToSats } from '../utils/lightning.js'
 import { sendCartOrderNotification } from '../utils/telegram.js'
 import QRCode from 'qrcode'
 
@@ -190,7 +190,7 @@ export default function Cart() {
     setCheckoutStep('generating')
     setError('')
     try {
-      const amountSats = await toSats(totalPrice)
+      const amountSats = await usdToSats(totalPrice)
       const memo = items.map(i => `${i.product.title} ×${i.qty}`).join(', ')
       const inv = await createInvoice(amountSats, memo)
       setInvoice({ ...inv, amountSats })
@@ -208,7 +208,7 @@ export default function Cart() {
       const splitItems = buildSplitItems()
       const generated = []
       for (const item of splitItems) {
-        const amountSats = await toSats(item.price)
+        const amountSats = await usdToSats(item.price)
         const inv = await createInvoice(amountSats, `Purchase: ${item.label}`)
         generated.push({ ...inv, amountSats, label: item.label, paid: false })
       }
