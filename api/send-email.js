@@ -217,7 +217,7 @@ export default async function handler(req, res) {
         'Authorization': `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: 'NOBDDY <orders@nobddy.store>',
+        from: 'NOBDDY <order@nobddy.store>',
         to: toEmail,
         subject,
         html,
