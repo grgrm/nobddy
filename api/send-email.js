@@ -90,6 +90,9 @@ export default async function handler(req, res) {
             <p style="margin:0; font-size: 12px; color: #999;">
               nobddy.store — exist without permission.
             </p>
+            <p style="margin: 8px 0 0; font-size: 11px; color: #bbb;">
+              You received this email because you made a purchase at <a href="https://nobddy.store" style="color:#bbb;">nobddy.store</a>
+            </p>
           </td>
         </tr>
 
@@ -198,6 +201,9 @@ export default async function handler(req, res) {
             <p style="margin:0; font-size: 12px; color: #999;">
               nobddy.store — exist without permission.
             </p>
+            <p style="margin: 8px 0 0; font-size: 11px; color: #bbb;">
+              You received this email because you made a purchase at <a href="https://nobddy.store" style="color:#bbb;">nobddy.store</a>
+            </p>
           </td>
         </tr>
 
@@ -217,10 +223,14 @@ export default async function handler(req, res) {
         'Authorization': `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: 'NOBDDY <order@nobddy.store>',
+        from: 'NOBDDY <orders@nobddy.store>',
         to: toEmail,
         subject,
         html,
+        headers: {
+          'List-Unsubscribe': '<https://nobddy.store>',
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        },
       }),
     })
 
