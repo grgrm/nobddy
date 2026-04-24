@@ -457,7 +457,22 @@ export default function AdminPanel({ products, ownerPubkey, onRefresh }) {
                           }}
                           placeholder={i === 0 ? 'https://example.com/photo1.jpg (main)' : `https://example.com/photo${i + 1}.jpg`}
                           type="url"
+                          style={{flex:1}}
                         />
+                        <label style={{cursor:'pointer',fontSize:11,padding:'6px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius)',color:'var(--text-dim)',whiteSpace:'nowrap',flexShrink:0}}>
+                          📁
+                          <input type="file" accept="image/*" style={{display:'none'}} onChange={async e => {
+                            const file = e.target.files[0]
+                            if (!file) return
+                            try {
+                              const token = sessionStorage.getItem('admin_token') || ''
+                              const url = await uploadImageToBlob(file, false, token)
+                              const next = [...(form.images || [])]
+                              next[i] = { ...next[i], url }
+                              setField('images', next)
+                            } catch { alert('Upload failed') }
+                          }} />
+                        </label>
                         {(form.images || []).length > 1 && (
                           <button
                             type="button"
