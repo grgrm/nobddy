@@ -38,25 +38,12 @@ export default async function handler(req, res) {
     // ── POSTCARD EMAIL ──────────────────────────────────────────────
     subject = 'Your NOBDDY Postcard ⚡'
 
-    const cardRows = (postcards || []).map(({ frontUrl, backUrl, denomination }) => `
+    const cardRows = (postcards || []).map(({ denomination }) => `
       <tr>
-        <td style="padding: 16px 0; border-bottom: 1px solid #e5e0d8;">
-          <p style="margin: 0 0 12px; font-family: 'Space Mono', monospace; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px;">
-            ${denomination ? `${denomination.toLocaleString()} sats` : ''}
+        <td style="padding: 12px 0; border-bottom: 1px solid #e5e0d8;">
+          <p style="margin: 0; font-family: 'Space Mono', monospace; font-size: 13px; color: #333;">
+            ⚡ ${denomination ? `${Number(denomination).toLocaleString()} sats` : 'Postcard'} — attached as files (front + back)
           </p>
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td width="48%" style="padding-right: 8px;">
-                <img src="${frontUrl}" alt="Postcard Front" style="width: 100%; border-radius: 6px; display: block;" />
-                <p style="margin: 6px 0 0; text-align: center; font-size: 11px; color: #999; font-family: monospace;">FRONT</p>
-              </td>
-              <td width="4%"></td>
-              <td width="48%" style="padding-left: 8px;">
-                <img src="${backUrl}" alt="Postcard Back" style="width: 100%; border-radius: 6px; display: block;" />
-                <p style="margin: 6px 0 0; text-align: center; font-size: 11px; color: #999; font-family: monospace;">BACK</p>
-              </td>
-            </tr>
-          </table>
         </td>
       </tr>
     `).join('')
