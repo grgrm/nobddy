@@ -338,7 +338,9 @@ export default function ProductPage({ product, onBack }) {
           {product.summary && <p className={styles.summary}>{product.summary}</p>}
 
           <div className={styles.price}>
-            {!isSoldOut && <span className={styles.lightning}>⚡</span>}
+            {isPostcard && denominations.length > 0 && selectedDenomination && currency === 'SATS'
+              ? <span style={{fontSize:'0.7em', fontWeight:400, color:'var(--text-dim)'}}>≈</span>
+              : !isSoldOut && <span className={styles.lightning}>⚡</span>}
             {isPostcard && denominations.length > 0
               ? selectedDenomination
                 ? currency === 'SATS'
