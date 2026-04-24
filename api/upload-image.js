@@ -29,12 +29,12 @@ export default async function handler(req, res) {
     const folder = isSecret ? 'postcards/back' : 'images'
 
     const blob = await put(`${folder}/${filename}`, buffer, {
-      access: 'private',
+      access: 'public',
       contentType,
       token: process.env.BLOB_READ_WRITE_TOKEN,
     })
 
-    return res.status(200).json({ url: blob.url, downloadUrl: blob.downloadUrl })
+    return res.status(200).json({ url: blob.url })
   } catch (e) {
     return res.status(500).json({ error: e.message })
   }
