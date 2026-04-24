@@ -23,15 +23,24 @@ const EMPTY_FORM = {
 }
 
 async function uploadImageToBlob(file, isSecret, adminToken) {
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result.split(',')[1])
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
   const res = await fetch('/api/upload-image', {
     method: 'POST',
     headers: {
-      'Content-Type': file.type,
-      'x-filename': `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`,
-      'x-secret': isSecret ? 'true' : 'false',
+      'Content-Type': 'application/json',
       'x-admin-password': adminToken || '',
     },
-    body: file,
+    body: JSON.stringify({
+      base64,
+      contentType: file.type,
+      filename: `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`,
+      isSecret,
+    }),
   })
   if (!res.ok) throw new Error('Upload failed')
   const data = await res.json()
