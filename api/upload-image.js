@@ -13,7 +13,6 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
-  // Verify token exists in Redis
   const valid = await redis.get(`admin_token:${token}`)
   if (!valid) {
     return res.status(401).json({ error: 'Invalid or expired token' })
@@ -28,14 +27,14 @@ export default async function handler(req, res) {
 
     const buffer = Buffer.from(base64, 'base64')
     const folder = isSecret ? 'postcards/back' : 'images'
-    const access = isSecret ? 'private' : 'public'
 
-    const { url } = await put(`${folder}/${filename}`, buffer, {
-      access,
+    const blob = await put(`${folder}/${filename}`, buffer, {
+      access: 'private',
       contentType,
+      token: process.env.BLOB_READ_WRITE_TOKEN,
     })
 
-    return res.status(200).json({ url })
+    return res.status(200).json({ url: blob.url, downloadUrl: blob.downloadUrl })
   } catch (e) {
     return res.status(500).json({ error: e.message })
   }
