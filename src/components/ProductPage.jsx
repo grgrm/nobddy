@@ -48,6 +48,7 @@ export default function ProductPage({ product, onBack }) {
 
   // Invoice state
   const [checkoutStep, setCheckoutStep] = useState(null) // null | shipping | generating | invoice | paid | error
+  const [revealedBackUrl, setRevealedBackUrl] = useState(null)
   const [invoice, setInvoice] = useState(null)
   const [error, setError] = useState('')
   const [timeLeft, setTimeLeft] = useState(600)
@@ -156,6 +157,18 @@ export default function ProductPage({ product, onBack }) {
             amountSats: invoice.amountSats,
             shipping,
           })
+          // Fetch back URL from server (secure — not from Nostr)
+          let backUrl = null
+          if (isPostcard && selectedDenomination) {
+            try {
+              const backRes = await fetch(`/api/get-postcard-back?productId=${product.id}&denomination=${selectedDenomination}&invoiceId=${invoice.invoiceId}`)
+              if (backRes.ok) {
+                const data = await backRes.json()
+                backUrl = data.backUrl
+                setRevealedBackUrl(backUrl)
+              }
+            } catch {}
+          }
           // Send email to buyer
           const pair = isPostcard && selectedDenomination
             ? (product.postcardPairs || []).find(p => p.denomination === selectedDenomination)
@@ -169,7 +182,7 @@ export default function ProductPage({ product, onBack }) {
               variant: variantLabel(),
               amountSats: invoice.amountSats,
               shipping,
-              postcards: pair ? [{ frontUrl: pair.front, backUrl: pair.back, denomination: selectedDenomination }] : [],
+              postcards: pair ? [{ frontUrl: pair.front, backUrl: backUrl || '', denomination: selectedDenomination }] : [],
             }),
           }).catch(() => {})
         }
@@ -552,15 +565,19 @@ export default function ProductPage({ product, onBack }) {
                     </div>
                     <div className={styles.postcardRevealItem}>
                       <div className={styles.postcardRevealLabel}>BACK 🔓</div>
-                      <img src={pair?.back} alt="back" className={`${styles.postcardRevealImg} ${styles.postcardRevealBack}`} />
+                      {revealedBackUrl
+                        ? <img src={revealedBackUrl} alt="back" className={`${styles.postcardRevealImg} ${styles.postcardRevealBack}`} />
+                        : <div className={styles.postcardRevealImg} style={{display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-dim)',fontSize:12}}>Loading...</div>
+                      }
                     </div>
                   </div>
                   <a
-                    href={pair?.back}
+                    href={revealedBackUrl || '#'}
                     download
                     className={styles.downloadBtn}
                     target="_blank"
                     rel="noopener noreferrer"
+                    style={!revealedBackUrl ? {opacity:0.4,pointerEvents:'none'} : {}}
                   >
                     ↓ DOWNLOAD BACK
                   </a>

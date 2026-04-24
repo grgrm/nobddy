@@ -38,6 +38,8 @@ function PasswordGate({ onUnlock }) {
         body: JSON.stringify({ password: input }),
       })
       if (res.ok) {
+        const { token } = await res.json().catch(() => ({}))
+        if (token) sessionStorage.setItem('admin_token', token)
         onUnlock()
       } else {
         setError(true)
@@ -174,13 +176,35 @@ export default function AdminPanel({ products, ownerPubkey, onRefresh }) {
         ? Math.min(...postcardPairs.map(p => Number(p.denomination)).filter(Boolean)) || 0
         : Number(form.price)
 
+      const productId = editingId || slugify(form.title)
+
+      // Save back URLs to KV (server-side, secure) — strip from Nostr
+      if (isPostcard && postcardPairs.some(p => p.back)) {
+        await fetch('/api/save-postcard-back', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            password: sessionStorage.getItem('admin_token') || '',
+            productId,
+            pairs: postcardPairs,
+          }),
+        })
+      }
+
+      // Strip back URLs from images before publishing to Nostr
+      const safePostcardImages = isPostcard
+        ? postcardPairs.flatMap(p => [
+            { url: p.front, secret: false, denomination: p.denomination },
+          ]).filter(img => img.url)
+        : postcardImages
+
       const res = await publishProduct({
         ...form,
         price: postcardPrice,
         currency: isPostcard ? 'SATS' : form.currency,
-        id: editingId || slugify(form.title),
-        images: postcardImages,
-        postcardPairs: isPostcard ? postcardPairs : [],
+        id: productId,
+        images: safePostcardImages,
+        postcardPairs: isPostcard ? postcardPairs.map(p => ({ ...p, back: '' })) : [],
         flavors: form.flavors
           ? form.flavors.split(',').map(f => f.trim()).filter(Boolean)
           : [],
