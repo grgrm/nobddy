@@ -28,6 +28,7 @@ export default function ProductPage({ product, onBack }) {
   const isPostcard = product.category === 'postcards'
   const flavors = product.flavors || []
   const denominations = product.denominations || []
+  const POSTCARD_FEE = 1.10 // 10% commission
 
   const availableSizes = (product.sizes && product.sizes.length > 0)
     ? product.sizes
@@ -89,8 +90,11 @@ export default function ProductPage({ product, onBack }) {
     return true
   }
 
+  const postcardSats = isPostcard && selectedDenomination
+    ? Math.ceil(Number(selectedDenomination) * POSTCARD_FEE)
+    : null
   const priceDisplay = isPostcard && selectedDenomination
-    ? `${Number(selectedDenomination).toLocaleString()} sats`
+    ? `${postcardSats.toLocaleString()} sats`
     : formatPrice(product.price, product.currency)
 
   const isSoldOut = product.status === 'sold'
@@ -107,7 +111,7 @@ export default function ProductPage({ product, onBack }) {
 
   function handleAddToCart() {
     if (!checkSize()) return
-    const price = isPostcard && selectedDenomination ? Number(selectedDenomination) : product.price
+    const price = isPostcard && selectedDenomination ? Math.ceil(Number(selectedDenomination) * POSTCARD_FEE) : product.price
     const currency = isPostcard && selectedDenomination ? 'SATS' : product.currency
     addToCart({ ...product, price, currency, variant: variantLabel() })
     setAdded(true)
@@ -219,7 +223,7 @@ export default function ProductPage({ product, onBack }) {
     try {
       // For postcards use selected denomination as price in SATS
       const productForInvoice = isPostcard && selectedDenomination
-        ? { ...product, price: Number(selectedDenomination), currency: 'SATS' }
+        ? { ...product, price: Math.ceil(Number(selectedDenomination) * POSTCARD_FEE), currency: 'SATS' }
         : product
       const inv = await createProductInvoice(productForInvoice)
       setInvoice(inv)
