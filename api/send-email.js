@@ -1,3 +1,17 @@
+async function fetchImageAsBase64(url) {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const buffer = await res.arrayBuffer()
+    const base64 = Buffer.from(buffer).toString('base64')
+    const contentType = res.headers.get('content-type') || 'image/jpeg'
+    const ext = contentType.includes('png') ? 'png' : contentType.includes('svg') ? 'svg' : 'jpg'
+    return { base64, contentType, ext }
+  } catch {
+    return null
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -214,6 +228,23 @@ export default async function handler(req, res) {
 </html>`
   }
 
+  // ── Build attachments for postcards ────────────────────────────
+  const attachments = []
+  if (type === 'postcard' && postcards?.length) {
+    for (let i = 0; i < postcards.length; i++) {
+      const { frontUrl, backUrl, denomination } = postcards[i]
+      const label = denomination ? `${denomination}sats` : `postcard${i + 1}`
+      if (frontUrl) {
+        const img = await fetchImageAsBase64(frontUrl)
+        if (img) attachments.push({ filename: `${label}-front.${img.ext}`, content: img.base64 })
+      }
+      if (backUrl) {
+        const img = await fetchImageAsBase64(backUrl)
+        if (img) attachments.push({ filename: `${label}-back.${img.ext}`, content: img.base64 })
+      }
+    }
+  }
+
   // ── Send via Resend ─────────────────────────────────────────────
   try {
     const emailRes = await fetch('https://api.resend.com/emails', {
@@ -227,6 +258,7 @@ export default async function handler(req, res) {
         to: toEmail,
         subject,
         html,
+        ...(attachments.length ? { attachments } : {}),
         headers: {
           'List-Unsubscribe': '<https://nobddy.store>',
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
