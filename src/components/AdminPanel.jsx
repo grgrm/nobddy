@@ -22,6 +22,22 @@ const EMPTY_FORM = {
   colors: '',
 }
 
+async function uploadImageToBlob(file, isSecret, adminToken) {
+  const res = await fetch('/api/upload-image', {
+    method: 'POST',
+    headers: {
+      'Content-Type': file.type,
+      'x-filename': `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`,
+      'x-secret': isSecret ? 'true' : 'false',
+      'x-admin-password': adminToken || '',
+    },
+    body: file,
+  })
+  if (!res.ok) throw new Error('Upload failed')
+  const data = await res.json()
+  return data.url
+}
+
 function PasswordGate({ onUnlock }) {
   const [input, setInput] = useState('')
   const [error, setError] = useState(false)
@@ -355,26 +371,60 @@ export default function AdminPanel({ products, ownerPubkey, onRefresh }) {
                             >✕</button>
                           )}
                         </div>
-                        <input
-                          value={pair.front || ''}
-                          onChange={e => {
-                            const next = [...(form.postcardPairs || [])]
-                            next[i] = { ...next[i], front: e.target.value }
-                            setField('postcardPairs', next)
-                          }}
-                          placeholder="🖼 Front (public)"
-                          type="url"
-                        />
-                        <input
-                          value={pair.back || ''}
-                          onChange={e => {
-                            const next = [...(form.postcardPairs || [])]
-                            next[i] = { ...next[i], back: e.target.value }
-                            setField('postcardPairs', next)
-                          }}
-                          placeholder="🔒 Back (secret, unlocks after payment)"
-                          type="url"
-                        />
+                        <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                          <input
+                            value={pair.front || ''}
+                            onChange={e => {
+                              const next = [...(form.postcardPairs || [])]
+                              next[i] = { ...next[i], front: e.target.value }
+                              setField('postcardPairs', next)
+                            }}
+                            placeholder="🖼 Front URL (public)"
+                            type="url"
+                            style={{flex:1}}
+                          />
+                          <label style={{cursor:'pointer',fontSize:11,padding:'6px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius)',color:'var(--text-dim)',whiteSpace:'nowrap',flexShrink:0}}>
+                            📁 Upload
+                            <input type="file" accept="image/*" style={{display:'none'}} onChange={async e => {
+                              const file = e.target.files[0]
+                              if (!file) return
+                              try {
+                                const token = sessionStorage.getItem('admin_token') || ''
+                                const url = await uploadImageToBlob(file, false, token)
+                                const next = [...(form.postcardPairs || [])]
+                                next[i] = { ...next[i], front: url }
+                                setField('postcardPairs', next)
+                              } catch { alert('Upload failed') }
+                            }} />
+                          </label>
+                        </div>
+                        <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                          <input
+                            value={pair.back || ''}
+                            onChange={e => {
+                              const next = [...(form.postcardPairs || [])]
+                              next[i] = { ...next[i], back: e.target.value }
+                              setField('postcardPairs', next)
+                            }}
+                            placeholder="🔒 Back URL (secret)"
+                            type="url"
+                            style={{flex:1}}
+                          />
+                          <label style={{cursor:'pointer',fontSize:11,padding:'6px 10px',border:'1px solid var(--border)',borderRadius:'var(--radius)',color:'var(--text-dim)',whiteSpace:'nowrap',flexShrink:0}}>
+                            📁 Upload
+                            <input type="file" accept="image/*" style={{display:'none'}} onChange={async e => {
+                              const file = e.target.files[0]
+                              if (!file) return
+                              try {
+                                const token = sessionStorage.getItem('admin_token') || ''
+                                const url = await uploadImageToBlob(file, true, token)
+                                const next = [...(form.postcardPairs || [])]
+                                next[i] = { ...next[i], back: url }
+                                setField('postcardPairs', next)
+                              } catch { alert('Upload failed') }
+                            }} />
+                          </label>
+                        </div>
                       </div>
                     ))}
                     <button
