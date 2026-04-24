@@ -7,12 +7,16 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD
   const { password, productId, pairs } = req.body
 
-  // Verify admin password
-  if (!password || password !== ADMIN_PASSWORD) {
+  // Verify admin token via Redis
+  if (!password) {
     return res.status(401).json({ error: 'Unauthorized' })
+  }
+
+  const valid = await redis.get(`admin_token:${password}`)
+  if (!valid) {
+    return res.status(401).json({ error: 'Invalid or expired token' })
   }
 
   if (!productId || !pairs || !Array.isArray(pairs)) {
