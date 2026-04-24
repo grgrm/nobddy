@@ -342,8 +342,8 @@ export default function ProductPage({ product, onBack }) {
             {isPostcard && denominations.length > 0
               ? selectedDenomination
                 ? currency === 'SATS'
-                  ? `$${(Number(selectedDenomination) / rates['SATS']).toFixed(2)}`
-                  : formatPrice(Number(selectedDenomination), 'SATS')
+                  ? `$${(Math.ceil(Number(selectedDenomination) * POSTCARD_FEE) / rates['SATS']).toFixed(2)}`
+                  : formatPrice(Math.ceil(Number(selectedDenomination) * POSTCARD_FEE), 'SATS')
                 : 'Select amount below'
               : priceDisplay}
           </div>
