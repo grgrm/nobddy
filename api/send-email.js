@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Email not configured' })
   }
 
-  const { type, product, variant, amountSats, shipping, items, totalSats, postcards } = req.body
+  const { type, product, variant, amountSats, shipping, items, totalSats, postcards, lnurl } = req.body
 
   // Must have email
   const toEmail = shipping?.email
@@ -78,6 +78,13 @@ export default async function handler(req, res) {
             <table width="100%" cellpadding="0" cellspacing="0">
               ${cardRows}
             </table>
+
+            ${lnurl ? `
+            <div style="margin: 32px 0 24px; text-align: center; background: #f5f0e8; border-radius: 12px; padding: 24px;">
+              <p style="margin: 0 0 12px; font-family: monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: #cc3a00; font-weight: 700;">⚡ Gift QR Code</p>
+              <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(lnurl)}&color=cc3a00&bgcolor=f5f0e8" alt="Gift QR" width="200" height="200" style="border-radius: 8px; border: 2px solid #cc3a00;" />
+              <p style="margin: 12px 0 0; font-size: 13px; color: #666; line-height: 1.6;">Give this QR code to the recipient — they scan it with any Lightning wallet to claim their sats.</p>
+            </div>` : ''}
 
             <p style="margin: 32px 0 0; color: #999; font-size: 13px; line-height: 1.6;">
               This is a digital product. Save these images — they won't be available again without your payment proof.

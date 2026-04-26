@@ -50,6 +50,7 @@ export default function ProductPage({ product, onBack }) {
   // Invoice state
   const [checkoutStep, setCheckoutStep] = useState(null) // null | shipping | generating | invoice | paid | error
   const [revealedBackUrl, setRevealedBackUrl] = useState(null)
+  const [revealedLnurl, setRevealedLnurl] = useState(null)
   const [invoice, setInvoice] = useState(null)
   const [error, setError] = useState('')
   const [timeLeft, setTimeLeft] = useState(600)
@@ -170,6 +171,7 @@ export default function ProductPage({ product, onBack }) {
                 const data = await backRes.json()
                 backUrl = data.backUrl
                 setRevealedBackUrl(backUrl)
+                if (data.lnurl) setRevealedLnurl(data.lnurl)
               }
             } catch {}
           }
@@ -187,6 +189,7 @@ export default function ProductPage({ product, onBack }) {
               amountSats: invoice.amountSats,
               shipping,
               postcards: pair ? [{ frontUrl: pair.front, backUrl: backUrl || '', denomination: selectedDenomination }] : [],
+              lnurl: revealedLnurl || undefined,
             }),
           }).catch(() => {})
         }
@@ -577,6 +580,24 @@ export default function ProductPage({ product, onBack }) {
                       }
                     </div>
                   </div>
+
+                  {/* ── LNURL QR для получателя ── */}
+                  {revealedLnurl && (
+                    <div style={{margin:'20px 0', textAlign:'center'}}>
+                      <div style={{fontSize:12, fontFamily:'var(--font-mono)', color:'var(--text-dim)', marginBottom:8, textTransform:'uppercase', letterSpacing:1}}>
+                        ⚡ Gift QR — scan to claim sats
+                      </div>
+                      <img
+                        src={'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(revealedLnurl) + '&color=cc3a00&bgcolor=f5f0e8'}
+                        alt="LNURL QR"
+                        style={{width:220, height:220, borderRadius:8, border:'2px solid #cc3a00'}}
+                      />
+                      <p style={{fontSize:11, color:'var(--text-dim)', fontFamily:'var(--font-mono)', marginTop:8}}>
+                        Give this QR to the recipient — they scan it to receive ⚡ {Number(selectedDenomination).toLocaleString()} sats
+                      </p>
+                    </div>
+                  )}
+
                   <a
                     href={revealedBackUrl || '#'}
                     download
