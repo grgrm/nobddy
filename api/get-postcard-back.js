@@ -30,7 +30,7 @@ export default async function handler(req, res) {
     const invoice = await checkRes.json()
 
     // Только Settled — Processing убран намеренно
-    if (invoice.status !== 'Settled') {
+    if (invoice.status !== 'Settled' && invoice.status !== 'Complete') {
       return res.status(403).json({ error: 'Invoice not paid' })
     }
 
