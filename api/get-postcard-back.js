@@ -7,11 +7,14 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { productId, denomination, invoiceId } = req.query
+  const { productId, denomination, invoiceId: rawInvoiceId } = req.query
 
-  if (!productId || !denomination || !invoiceId) {
+  if (!productId || !denomination || !rawInvoiceId) {
     return res.status(400).json({ error: 'Missing params' })
   }
+
+  // Чистим invoiceId от возможного :1 суффикса
+  const invoiceId = rawInvoiceId.split(':')[0]
 
   try {
     // 1. Проверяем инвойс через BTCPay напрямую
