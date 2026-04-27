@@ -1,41 +1,6 @@
-
-// Encode URL to LNURL bech32 format
-function encodeLnurl(url) {
-  const CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l'
-  const hrp = 'lnurl'
-  const bytes = Buffer.from(url, 'utf8')
-  const words = []
-  let buffer = 0, bitsLeft = 0
-  for (const byte of bytes) {
-    buffer = (buffer << 8) | byte
-    bitsLeft += 8
-    while (bitsLeft >= 5) {
-      bitsLeft -= 5
-      words.push((buffer >> bitsLeft) & 31)
-    }
-  }
-  if (bitsLeft > 0) words.push((buffer << (5 - bitsLeft)) & 31)
-  const data = words
-  const values = [
-    ...hrp.split('').map(c => c.charCodeAt(0) >> 5),
-    0,
-    ...hrp.split('').map(c => c.charCodeAt(0) & 31),
-    0,
-    ...data
-  ]
-  let chk = 1
-  const GEN = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3]
-  for (const v of values) {
-    const b = chk >> 25
-    chk = ((chk & 0x1ffffff) << 5) ^ v
-    for (let i = 0; i < 5; i++) if ((b >> i) & 1) chk ^= GEN[i]
-  }
-  chk ^= 1
-  const checksum = Array.from({length: 6}, (_, i) => (chk >> (5 * (5 - i))) & 31)
-  return (hrp + '1' + [...data, ...checksum].map(v => CHARSET[v]).join('')).toUpperCase()
-}
-
 import { Redis } from '@upstash/redis'
+import sharp from 'sharp'
+import QRCode from 'qrcode'
 
 const redis = Redis.fromEnv()
 
@@ -74,60 +39,106 @@ export default async function handler(req, res) {
 
     // 2. Получаем back URL из Redis
     const backUrl = await redis.get(`postcard:${productId}:${originalDenomination}`)
-    console.log('backUrl lookup key:', `postcard:${productId}:${originalDenomination}`, 'result:', backUrl ? 'found' : 'null')
     if (!backUrl) {
       return res.status(404).json({ error: 'Postcard not found', key: `postcard:${productId}:${originalDenomination}` })
     }
 
-    // 3. Идемпотентность
+    // 3. Идемпотентность — если уже есть lnurl и backWithQr
     const existingLnurl = await redis.get(`pullpayment:${invoiceId}`)
-    if (existingLnurl) {
-      return res.status(200).json({ backUrl, lnurl: existingLnurl })
+    const existingBackWithQr = await redis.get(`backwithqr:${invoiceId}`)
+    if (existingLnurl && existingBackWithQr) {
+      return res.status(200).json({ backUrl, lnurl: existingLnurl, backWithQr: existingBackWithQr })
     }
 
-    // 4. Создаём Pull Payment
-    const ppBody = {
-      name: `PP-${invoiceId.slice(0,10)}-${originalDenomination}`,
-      amount: String(originalDenomination),
-      currency: 'SATS',
-      paymentMethods: ['BTC-LN'],
-      autoApproveClaims: true,
-    }
-    console.log('Creating pull payment with body:', JSON.stringify(ppBody))
-
-    const ppRes = await fetch(
-      `${process.env.BTCPAY_URL}/api/v1/stores/${process.env.BTCPAY_STORE_ID}/pull-payments`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `token ${process.env.BTCPAY_API_KEY}`,
-        },
-        body: JSON.stringify(ppBody),
-      }
-    )
-
-    const ppText = await ppRes.text()
-    console.log('Pull payment response status:', ppRes.status, 'body:', ppText)
-
-    if (!ppRes.ok) {
-      return res.status(500).json({ error: 'Could not create pull payment', detail: ppText })
-    }
-
-    const pp = JSON.parse(ppText)
-    // Fetch LNURL directly from the Pull Payment page
-    const ppPageRes = await fetch(`${process.env.BTCPAY_URL}/pull-payments/${pp.id}`)
-    const ppHtml = await ppPageRes.text()
-    const lnurlMatch = ppHtml.match(/lnurl1[a-z0-9]+/)
-    const lnurl = lnurlMatch ? lnurlMatch[0].toUpperCase() : null
+    // 4. Создаём Pull Payment если ещё нет
+    let lnurl = existingLnurl
     if (!lnurl) {
-      return res.status(500).json({ error: 'Could not extract LNURL from pull payment page' })
+      const ppBody = {
+        name: `PP-${invoiceId.slice(0,10)}-${originalDenomination}`,
+        amount: String(originalDenomination),
+        currency: 'SATS',
+        paymentMethods: ['BTC-LN'],
+        autoApproveClaims: true,
+      }
+
+      const ppRes = await fetch(
+        `${process.env.BTCPAY_URL}/api/v1/stores/${process.env.BTCPAY_STORE_ID}/pull-payments`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `token ${process.env.BTCPAY_API_KEY}`,
+          },
+          body: JSON.stringify(ppBody),
+        }
+      )
+
+      const ppText = await ppRes.text()
+      if (!ppRes.ok) {
+        return res.status(500).json({ error: 'Could not create pull payment', detail: ppText })
+      }
+
+      const pp = JSON.parse(ppText)
+      const ppPageRes = await fetch(`${process.env.BTCPAY_URL}/pull-payments/${pp.id}`)
+      const ppHtml = await ppPageRes.text()
+      const lnurlMatch = ppHtml.match(/lnurl1[a-z0-9]+/)
+      lnurl = lnurlMatch ? lnurlMatch[0].toUpperCase() : null
+      if (!lnurl) {
+        return res.status(500).json({ error: 'Could not extract LNURL from pull payment page' })
+      }
+
+      await redis.set(`pullpayment:${invoiceId}`, lnurl, { ex: 60 * 60 * 24 * 30 })
+      console.log('Pull payment created:', pp.id, 'lnurl:', lnurl)
     }
-    console.log('Pull payment created:', pp.id, 'lnurl:', lnurl)
 
-    await redis.set(`pullpayment:${invoiceId}`, lnurl, { ex: 60 * 60 * 24 * 30 })
+    // 5. Накладываем QR на back изображение
+    let backWithQr = existingBackWithQr
+    if (!backWithQr) {
+      try {
+        // Скачиваем back изображение
+        const backImgRes = await fetch(backUrl)
+        const backImgBuffer = Buffer.from(await backImgRes.arrayBuffer())
 
-    return res.status(200).json({ backUrl, lnurl })
+        // Получаем размеры изображения
+        const backMeta = await sharp(backImgBuffer).metadata()
+        const imgWidth = backMeta.width || 800
+        const imgHeight = backMeta.height || 600
+
+        // Размер QR — 25% от меньшей стороны
+        const qrSize = Math.round(Math.min(imgWidth, imgHeight) * 0.25)
+
+        // Генерируем QR как PNG буфер
+        const qrBuffer = await QRCode.toBuffer(lnurl, {
+          type: 'png',
+          width: qrSize,
+          margin: 1,
+          color: { dark: '#000000', light: '#ffffff' }
+        })
+
+        // Позиция QR — правый нижний угол с отступом
+        const padding = Math.round(qrSize * 0.1)
+        const qrLeft = imgWidth - qrSize - padding
+        const qrTop = imgHeight - qrSize - padding
+
+        // Накладываем QR на back
+        const compositeBuffer = await sharp(backImgBuffer)
+          .composite([{ input: qrBuffer, left: qrLeft, top: qrTop }])
+          .png()
+          .toBuffer()
+
+        backWithQr = `data:image/png;base64,${compositeBuffer.toString('base64')}`
+
+        // Сохраняем в Redis на 30 дней
+        await redis.set(`backwithqr:${invoiceId}`, backWithQr, { ex: 60 * 60 * 24 * 30 })
+        console.log('Back with QR generated successfully')
+      } catch (imgErr) {
+        console.error('Image processing error:', imgErr.message)
+        // Если не получилось наложить QR — возвращаем оригинальный back
+        backWithQr = null
+      }
+    }
+
+    return res.status(200).json({ backUrl, lnurl, backWithQr })
 
   } catch (e) {
     console.error('Error:', e.message)

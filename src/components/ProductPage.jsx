@@ -50,6 +50,7 @@ export default function ProductPage({ product, onBack }) {
   // Invoice state
   const [checkoutStep, setCheckoutStep] = useState(null) // null | shipping | generating | invoice | paid | error
   const [revealedBackUrl, setRevealedBackUrl] = useState(null)
+  const [revealedBackWithQr, setRevealedBackWithQr] = useState(null)
   const [revealedLnurl, setRevealedLnurl] = useState(null)
   const [invoice, setInvoice] = useState(null)
   const [error, setError] = useState('')
@@ -172,6 +173,7 @@ export default function ProductPage({ product, onBack }) {
                 backUrl = data.backUrl
                 setRevealedBackUrl(backUrl)
                 if (data.lnurl) setRevealedLnurl(data.lnurl)
+                if (data.backWithQr) setRevealedBackWithQr(data.backWithQr)
               }
             } catch {}
           }
@@ -188,7 +190,7 @@ export default function ProductPage({ product, onBack }) {
               variant: variantLabel(),
               amountSats: invoice.amountSats,
               shipping,
-              postcards: pair ? [{ frontUrl: pair.front, backUrl: backUrl || '', denomination: selectedDenomination }] : [],
+              postcards: pair ? [{ frontUrl: pair.front, backUrl: backUrl || '', backWithQr: data.backWithQr || null, denomination: selectedDenomination }] : [],
               lnurl: revealedLnurl || undefined,
             }),
           }).catch(() => {})
@@ -599,12 +601,12 @@ export default function ProductPage({ product, onBack }) {
                   )}
 
                   <a
-                    href={revealedBackUrl || '#'}
+                    href={revealedBackWithQr || revealedBackUrl || '#'}
                     download
                     className={styles.downloadBtn}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={!revealedBackUrl ? {opacity:0.4,pointerEvents:'none'} : {}}
+                    style={!(revealedBackWithQr || revealedBackUrl) ? {opacity:0.4,pointerEvents:'none'} : {}}
                   >
                     ↓ DOWNLOAD BACK
                   </a>

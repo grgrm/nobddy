@@ -1,5 +1,6 @@
 {
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
-  ]
+  ],
+  "installCommand": "npm install --arch=x64 --platform=linux sharp && npm install"
 }
