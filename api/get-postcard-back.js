@@ -1,3 +1,40 @@
+
+// Encode URL to LNURL bech32 format
+function encodeLnurl(url) {
+  const CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l'
+  const hrp = 'lnurl'
+  const bytes = Buffer.from(url, 'utf8')
+  const words = []
+  let buffer = 0, bitsLeft = 0
+  for (const byte of bytes) {
+    buffer = (buffer << 8) | byte
+    bitsLeft += 8
+    while (bitsLeft >= 5) {
+      bitsLeft -= 5
+      words.push((buffer >> bitsLeft) & 31)
+    }
+  }
+  if (bitsLeft > 0) words.push((buffer << (5 - bitsLeft)) & 31)
+  const data = words
+  const values = [
+    ...hrp.split('').map(c => c.charCodeAt(0) >> 5),
+    0,
+    ...hrp.split('').map(c => c.charCodeAt(0) & 31),
+    0,
+    ...data
+  ]
+  let chk = 1
+  const GEN = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3]
+  for (const v of values) {
+    const b = chk >> 25
+    chk = ((chk & 0x1ffffff) << 5) ^ v
+    for (let i = 0; i < 5; i++) if ((b >> i) & 1) chk ^= GEN[i]
+  }
+  chk ^= 1
+  const checksum = Array.from({length: 6}, (_, i) => (chk >> (5 * (5 - i))) & 31)
+  return (hrp + '1' + [...data, ...checksum].map(v => CHARSET[v]).join('')).toUpperCase()
+}
+
 import { Redis } from '@upstash/redis'
 
 const redis = Redis.fromEnv()
@@ -78,7 +115,8 @@ export default async function handler(req, res) {
     }
 
     const pp = JSON.parse(ppText)
-    const lnurl = `${process.env.BTCPAY_URL}/api/v1/stores/${process.env.BTCPAY_STORE_ID}/pull-payments/${pp.id}/lnurlw`
+    const rawUrl = `${process.env.BTCPAY_URL}/api/v1/stores/${process.env.BTCPAY_STORE_ID}/pull-payments/${pp.id}/lnurlw`
+    const lnurl = encodeLnurl(rawUrl)
     console.log('Pull payment created:', pp.id, 'lnurl:', lnurl)
 
     await redis.set(`pullpayment:${invoiceId}`, lnurl, { ex: 60 * 60 * 24 * 30 })
