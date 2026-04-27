@@ -16,6 +16,9 @@ export default async function handler(req, res) {
   // Чистим invoiceId от возможного :1 суффикса
   const invoiceId = rawInvoiceId.split(':')[0]
 
+  // Оригинальный номинал без 10% комиссии (так сохранено в Redis)
+  const originalDenomination = Math.round(Number(denomination) / 1.10)
+
   try {
     // 1. Проверяем инвойс через BTCPay напрямую
     const checkRes = await fetch(
@@ -30,7 +33,6 @@ export default async function handler(req, res) {
 
     const invoice = await checkRes.json()
 
-    // Логируем статус для отладки
     console.log('Invoice status:', invoice.status, 'for invoiceId:', invoiceId)
 
     // Принимаем Settled и Complete
@@ -38,10 +40,10 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'Invoice not paid', status: invoice.status })
     }
 
-    // 2. Получаем back URL из Redis
-    const backUrl = await redis.get(`postcard:${productId}:${denomination}`)
+    // 2. Получаем back URL из Redis по оригинальному номиналу
+    const backUrl = await redis.get(`postcard:${productId}:${originalDenomination}`)
     if (!backUrl) {
-      return res.status(404).json({ error: 'Postcard not found' })
+      return res.status(404).json({ error: 'Postcard not found', key: `postcard:${productId}:${originalDenomination}` })
     }
 
     // 3. Идемпотентность — если Pull Payment уже создан для этого инвойса, возвращаем его
@@ -50,7 +52,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ backUrl, lnurl: existingLnurl })
     }
 
-    // 4. Создаём Pull Payment строго на denomination (не на denomination*1.10!)
+    // 4. Создаём Pull Payment строго на originalDenomination (без комиссии)
     const ppRes = await fetch(
       `${process.env.BTCPAY_URL}/api/v1/stores/${process.env.BTCPAY_STORE_ID}/pull-payments`,
       {
@@ -60,8 +62,8 @@ export default async function handler(req, res) {
           'Authorization': `token ${process.env.BTCPAY_API_KEY}`,
         },
         body: JSON.stringify({
-          name: `Postcard ${denomination} sats (Invoice ${invoiceId})`,
-          amount: String(denomination),
+          name: `Postcard ${originalDenomination} sats (Invoice ${invoiceId})`,
+          amount: String(originalDenomination),
           currency: 'SATS',
           paymentMethods: ['BTC-LN'],
           autoApproveClaims: true,
