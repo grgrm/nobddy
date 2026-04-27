@@ -165,15 +165,19 @@ export default function ProductPage({ product, onBack }) {
           })
           // Fetch back URL from server (secure — not from Nostr)
           let backUrl = null
+          let backWithQr = null
+          let lnurl = null
           if (isPostcard && selectedDenomination) {
             try {
               const backRes = await fetch(`/api/get-postcard-back?productId=${product.id}&denomination=${selectedDenomination}&invoiceId=${invoice.invoiceId}`)
               if (backRes.ok) {
                 const data = await backRes.json()
                 backUrl = data.backUrl
+                backWithQr = data.backWithQr || null
+                lnurl = data.lnurl || null
                 setRevealedBackUrl(backUrl)
-                if (data.lnurl) setRevealedLnurl(data.lnurl)
-                if (data.backWithQr) setRevealedBackWithQr(data.backWithQr)
+                if (lnurl) setRevealedLnurl(lnurl)
+                if (backWithQr) setRevealedBackWithQr(backWithQr)
               }
             } catch {}
           }
@@ -190,8 +194,8 @@ export default function ProductPage({ product, onBack }) {
               variant: variantLabel(),
               amountSats: invoice.amountSats,
               shipping,
-              postcards: pair ? [{ frontUrl: pair.front, backUrl: backUrl || '', backWithQr: data.backWithQr || null, denomination: selectedDenomination }] : [],
-              lnurl: revealedLnurl || undefined,
+              postcards: pair ? [{ frontUrl: pair.front, backUrl: backUrl || '', backWithQr: backWithQr, denomination: selectedDenomination }] : [],
+              lnurl: lnurl || undefined,
             }),
           }).catch(() => {})
         }
