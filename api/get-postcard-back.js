@@ -115,8 +115,14 @@ export default async function handler(req, res) {
     }
 
     const pp = JSON.parse(ppText)
-    const rawUrl = `${process.env.BTCPAY_URL}/BTC/UILNURL/withdraw/pp/${pp.id}`
-    const lnurl = encodeLnurl(rawUrl)
+    // Fetch LNURL directly from the Pull Payment page
+    const ppPageRes = await fetch(`${process.env.BTCPAY_URL}/pull-payments/${pp.id}`)
+    const ppHtml = await ppPageRes.text()
+    const lnurlMatch = ppHtml.match(/lnurl1[a-z0-9]+/)
+    const lnurl = lnurlMatch ? lnurlMatch[0].toUpperCase() : null
+    if (!lnurl) {
+      return res.status(500).json({ error: 'Could not extract LNURL from pull payment page' })
+    }
     console.log('Pull payment created:', pp.id, 'lnurl:', lnurl)
 
     await redis.set(`pullpayment:${invoiceId}`, lnurl, { ex: 60 * 60 * 24 * 30 })
