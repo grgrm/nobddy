@@ -17,7 +17,8 @@ export default async function handler(req, res) {
   const invoiceId = rawInvoiceId.split(':')[0]
 
   // Оригинальный номинал без 10% комиссии (так сохранено в Redis)
-  const originalDenomination = Math.round(Number(denomination) / 1.10)
+  // denomination уже является оригинальным номиналом
+  const originalDenomination = Number(denomination)
 
   try {
     // 1. Проверяем инвойс через BTCPay напрямую
