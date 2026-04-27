@@ -24,10 +24,14 @@ export default async function handler(req, res) {
     )
 
     if (!checkRes.ok) {
-      return res.status(400).json({ error: 'Could not verify payment' })
+      const errText = await checkRes.text()
+      return res.status(400).json({ error: 'Could not verify payment', btcpayStatus: checkRes.status, btcpayBody: errText })
     }
 
     const invoice = await checkRes.json()
+
+    // Логируем статус для отладки
+    console.log('Invoice status:', invoice.status, 'for invoiceId:', invoiceId)
 
     // Принимаем Settled и Complete
     if (invoice.status !== 'Settled' && invoice.status !== 'Complete') {
