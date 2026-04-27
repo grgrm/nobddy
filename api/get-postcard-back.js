@@ -78,7 +78,7 @@ export default async function handler(req, res) {
     }
 
     const pp = JSON.parse(ppText)
-    const lnurl = `${process.env.BTCPAY_URL}/pull-payments/${pp.id}/lnurlw`
+    const lnurl = `${process.env.BTCPAY_URL}/api/v1/stores/${process.env.BTCPAY_STORE_ID}/pull-payments/${pp.id}/lnurlw`
     console.log('Pull payment created:', pp.id, 'lnurl:', lnurl)
 
     await redis.set(`pullpayment:${invoiceId}`, lnurl, { ex: 60 * 60 * 24 * 30 })
