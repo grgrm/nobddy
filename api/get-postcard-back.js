@@ -115,7 +115,7 @@ export default async function handler(req, res) {
     }
 
     const pp = JSON.parse(ppText)
-    const rawUrl = `${process.env.BTCPAY_URL}/api/v1/stores/${process.env.BTCPAY_STORE_ID}/pull-payments/${pp.id}/lnurlw`
+    const rawUrl = `${process.env.BTCPAY_URL}/BTC/UILNURL/withdraw/pp/${pp.id}`
     const lnurl = encodeLnurl(rawUrl)
     console.log('Pull payment created:', pp.id, 'lnurl:', lnurl)
 
