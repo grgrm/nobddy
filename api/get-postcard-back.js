@@ -50,7 +50,7 @@ export default async function handler(req, res) {
 
     // 4. Создаём Pull Payment
     const ppBody = {
-      name: `Postcard ${originalDenomination} sats (Invoice ${invoiceId})`,
+      name: `PP-${invoiceId.slice(0,10)}-${originalDenomination}`,
       amount: String(originalDenomination),
       currency: 'SATS',
       paymentMethods: ['BTC-LN'],
