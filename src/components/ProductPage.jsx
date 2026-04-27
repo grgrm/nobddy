@@ -577,7 +577,7 @@ export default function ProductPage({ product, onBack }) {
                     <div className={styles.postcardRevealItem}>
                       <div className={styles.postcardRevealLabel}>BACK 🔓</div>
                       {revealedBackUrl
-                        ? <img src={revealedBackUrl} alt="back" className={`${styles.postcardRevealImg} ${styles.postcardRevealBack}`} />
+                        ? <img src={revealedBackWithQr || revealedBackUrl} alt="back" className={`${styles.postcardRevealImg} ${styles.postcardRevealBack}`} />
                         : <div className={styles.postcardRevealImg} style={{display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-dim)',fontSize:12}}>Loading...</div>
                       }
                     </div>
